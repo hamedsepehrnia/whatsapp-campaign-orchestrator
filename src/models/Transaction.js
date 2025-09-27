@@ -12,19 +12,30 @@ const transactionSchema = new mongoose.Schema({
     status:{
         type: String,
         required: true,
-        enum: ['success', 'failure'],
+        enum: ['pending', 'success', 'failure'],
     },
     gateway: {
         type: String,
         required: true,
-        enum: ['zrinpal', 'other'],
+        enum: ['zarinpal', 'mock', 'other'],
+    },
+    // Zarinpal specific fields
+    authority: {
+        type: String,
+        sparse: true, // Allow multiple null values
+    },
+    refId: {
+        type: String,
+        sparse: true,
+    },
+    gatewayData: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     },
     paymentDate: {
         type: Date,
         default: Date.now,
     }
-
-
 },
 {timestamps: true}
 )

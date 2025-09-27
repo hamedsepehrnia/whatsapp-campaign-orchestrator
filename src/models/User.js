@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema(
         role: { type: String, required: true, enum: ["user", "admin", "superAdmin"], default: "user" },
         status: { type: String, enum: ["active", "inactive", "banned"], default: "active" },
         profile: {
-            age: { type: Number },
+            age: { type: Number},
             address: { type: String },
             avatar: { type: String },
         },

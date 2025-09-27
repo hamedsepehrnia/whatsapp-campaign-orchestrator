@@ -7,6 +7,7 @@ const packageSchema = new mongoose.Schema(
       duration: {type:Number, required:true},
       category: {type:String, required:true},
       status: {type:String, required:true, enum: ['active', 'inactive'], default: 'active'},
+      messageLimit: {type:Number, default: 0}, // تعداد پیام‌های قابل ارسال
     },
 {timestamps: true},
 )
