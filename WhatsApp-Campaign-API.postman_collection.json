@@ -177,6 +177,19 @@
           "response": []
         },
         {
+          "name": "Download Excel Template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/excel-template/download",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "excel-template", "download"]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Upload Recipients",
           "request": {
             "method": "POST",
@@ -404,6 +417,75 @@
               "raw": "{{base_url}}/api/campaigns/{{campaign_id}}",
               "host": ["{{base_url}}"],
               "path": ["api", "campaigns", "{{campaign_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "👑 Admin Management",
+      "item": [
+        {
+          "name": "Upload Excel Template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "template",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/excel-template",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "excel-template"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Download Excel Template (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/excel-template/download",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "excel-template", "download"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Excel Template Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/excel-template/info",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "excel-template", "info"]
             }
           },
           "response": []

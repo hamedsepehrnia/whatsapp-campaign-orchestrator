@@ -23,10 +23,14 @@ const {
     setCampaignInterval,
     getCampaignStepStatus
 } = require('../controllers/campaignController');
+const { downloadExcelTemplate } = require('../controllers/adminController');
 
 const router = express.Router();
 
-// All routes require JWT authentication
+// Public route for downloading Excel template (no authentication required)
+router.get('/excel-template/download', downloadExcelTemplate);
+
+// All other routes require JWT authentication
 router.use(authenticateJwt);
 
 // Subscription info

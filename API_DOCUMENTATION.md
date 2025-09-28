@@ -655,6 +655,58 @@ Get admin dashboard statistics (Admin only).
 }
 ```
 
+### Upload Excel Template
+**POST** `/api/admin/excel-template`
+
+Upload Excel template file for recipient data (Admin only).
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Request:** `multipart/form-data`
+- `template`: Excel file (.xlsx) with recipient template
+
+**Response:**
+```json
+{
+  "message": "Excel template uploaded successfully",
+  "template": {
+    "filename": "recipients-template.xlsx",
+    "originalName": "template.xlsx",
+    "size": 8192,
+    "path": "/uploads/templates/recipients-template.xlsx"
+  }
+}
+```
+
+### Download Excel Template (Admin)
+**GET** `/api/admin/excel-template/download`
+
+Download the current Excel template file (Admin only).
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:** Excel file download (`recipients-template.xlsx`)
+
+### Get Excel Template Info
+**GET** `/api/admin/excel-template/info`
+
+Get information about the current Excel template (Admin only).
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:**
+```json
+{
+  "hasTemplate": true,
+  "template": {
+    "filename": "recipients-template.xlsx",
+    "size": 8192,
+    "lastModified": "2024-01-15T10:30:00.000Z",
+    "path": "/uploads/templates/recipients-template.xlsx"
+  }
+}
+```
+
 ---
 
 ## 📱 Campaign Endpoints
@@ -714,7 +766,7 @@ Create a new WhatsApp campaign.
 ### Get Campaign Step Status
 **GET** `/api/campaigns/:campaignId/steps`
 
-Get the current step status of a campaign in the 7-step flow.
+Get the current step status of a campaign in the 8-step flow.
 
 **Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
 
@@ -724,15 +776,16 @@ Get the current step status of a campaign in the 7-step flow.
   "campaign": {
     "id": "507f1f77bcf86cd799439011",
     "status": "draft",
-    "currentStep": 1,
+    "currentStep": 2,
     "stepStatus": {
       "step1": { "completed": true, "title": "تعریف کمپین و متن پیام" },
-      "step2": { "completed": false, "title": "آپلود فایل اکسل" },
-      "step3": { "completed": false, "title": "افزودن فایل ضمیمه" },
-      "step4": { "completed": false, "title": "تنظیمات وقفه ارسال" },
-      "step5": { "completed": false, "title": "اتصال حساب WhatsApp" },
-      "step6": { "completed": false, "title": "ارسال پیام‌ها" },
-      "step7": { "completed": false, "title": "گزارش نهایی" }
+      "step2": { "completed": true, "title": "دانلود فایل نمونه اکسل" },
+      "step3": { "completed": false, "title": "آپلود فایل اکسل" },
+      "step4": { "completed": false, "title": "افزودن فایل ضمیمه" },
+      "step5": { "completed": false, "title": "تنظیمات وقفه ارسال" },
+      "step6": { "completed": false, "title": "اتصال حساب WhatsApp" },
+      "step7": { "completed": false, "title": "ارسال پیام‌ها" },
+      "step8": { "completed": false, "title": "گزارش نهایی" }
     },
     "progress": {
       "total": 0,
@@ -778,6 +831,25 @@ Set the message sending interval for a campaign.
 - `5s` - 5 seconds between messages
 - `10s` - 10 seconds between messages  
 - `20s` - 20 seconds between messages
+
+### Download Excel Template
+**GET** `/api/campaigns/excel-template/download`
+
+Download the Excel template file for recipient data.
+
+**Response:** Excel file download (`recipients-template.xlsx`)
+
+**Template Format:**
+- **Column A:** `phone` - Phone number (required)
+- **Column B:** `name` - Recipient name (optional)
+
+**Example Template Content:**
+```
+phone         | name
+09123456789   | علی احمدی
+09987654321   | فاطمه محمدی
+09111111111   | حسن رضایی
+```
 
 ### Upload Recipients
 **POST** `/api/campaigns/:campaignId/recipients`

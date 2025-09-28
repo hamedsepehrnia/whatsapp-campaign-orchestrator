@@ -827,48 +827,53 @@ exports.getCampaignStepStatus = async (req, res) => {
         let currentStep = 1;
         let stepStatus = {
             step1: { completed: true, title: "تعریف کمپین و متن پیام" },
-            step2: { completed: false, title: "آپلود فایل اکسل" },
-            step3: { completed: false, title: "افزودن فایل ضمیمه" },
-            step4: { completed: false, title: "تنظیمات وقفه ارسال" },
-            step5: { completed: false, title: "اتصال حساب WhatsApp" },
-            step6: { completed: false, title: "ارسال پیام‌ها" },
-            step7: { completed: false, title: "گزارش نهایی" }
+            step2: { completed: false, title: "دانلود فایل نمونه اکسل" },
+            step3: { completed: false, title: "آپلود فایل اکسل" },
+            step4: { completed: false, title: "افزودن فایل ضمیمه" },
+            step5: { completed: false, title: "تنظیمات وقفه ارسال" },
+            step6: { completed: false, title: "اتصال حساب WhatsApp" },
+            step7: { completed: false, title: "ارسال پیام‌ها" },
+            step8: { completed: false, title: "گزارش نهایی" }
         };
 
-        // Step 2: Recipients uploaded
-        if (campaign.recipients && campaign.recipients.length > 0) {
-            stepStatus.step2.completed = true;
-            currentStep = 2;
-        }
+        // Step 2: Excel template downloaded (always available)
+        stepStatus.step2.completed = true;
+        currentStep = 2;
 
-        // Step 3: Attachment uploaded
-        if (campaign.attachment && campaign.attachment.filename) {
+        // Step 3: Recipients uploaded
+        if (campaign.recipients && campaign.recipients.length > 0) {
             stepStatus.step3.completed = true;
             currentStep = 3;
         }
 
-        // Step 4: Interval set
-        if (campaign.interval) {
+        // Step 4: Attachment uploaded
+        if (campaign.attachment && campaign.attachment.filename) {
             stepStatus.step4.completed = true;
             currentStep = 4;
         }
 
-        // Step 5: WhatsApp connected
-        if (campaign.whatsappSession && campaign.whatsappSession.isConnected) {
+        // Step 5: Interval set
+        if (campaign.interval) {
             stepStatus.step5.completed = true;
             currentStep = 5;
         }
 
-        // Step 6: Campaign running
-        if (campaign.status === 'running') {
+        // Step 6: WhatsApp connected
+        if (campaign.whatsappSession && campaign.whatsappSession.isConnected) {
             stepStatus.step6.completed = true;
             currentStep = 6;
         }
 
-        // Step 7: Campaign completed
-        if (campaign.status === 'completed') {
+        // Step 7: Campaign running
+        if (campaign.status === 'running') {
             stepStatus.step7.completed = true;
             currentStep = 7;
+        }
+
+        // Step 8: Campaign completed
+        if (campaign.status === 'completed') {
+            stepStatus.step8.completed = true;
+            currentStep = 8;
         }
 
         res.json({
