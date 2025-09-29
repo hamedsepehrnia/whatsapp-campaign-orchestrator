@@ -82,6 +82,10 @@ exports.loginUser = async (req, res) => {
 
 // GET PROFILE
 exports.getProfile = async (req, res) => {
+<<<<<<< HEAD
+=======
+    
+>>>>>>> f0d7df4 (add cros and session config for cookie)
     if (!req.user) return res.status(401).json({ message: "User not authorized" });
     res.json({ user: req.user });
 };
