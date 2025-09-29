@@ -4,7 +4,9 @@ const Campaign = require('../models/Campaign');
 // Middleware to check subscription limits for campaign creation
 exports.checkSubscriptionLimit = async (req, res, next) => {
     try {
-        const { recipientsCount } = req.body;
+        // For multipart/form-data requests, req.body might be undefined
+        // This middleware should be used after file upload processing
+        const recipientsCount = req.body?.recipientsCount || req.recipientsCount;
         
         if (!recipientsCount || recipientsCount <= 0) {
             return next(); // Skip validation if no recipients count provided
@@ -94,6 +96,7 @@ exports.checkSubscriptionLimit = async (req, res, next) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
 
 // Middleware to check if user can start a campaign
 exports.checkCampaignStartPermission = async (req, res, next) => {

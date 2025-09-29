@@ -138,33 +138,33 @@ exports.uploadRecipients = [
                 });
             }
 
-        // Update campaign with recipients
-        campaign.recipients = recipients;
-        campaign.progress.total = recipients.length;
-        campaign.status = 'ready';
-        await campaign.save();
+            // Update campaign with recipients
+            campaign.recipients = recipients;
+            campaign.progress.total = recipients.length;
+            campaign.status = 'ready';
+            await campaign.save();
 
-        // Send WebSocket update
-        await websocketService.sendCampaignUpdate(campaign._id, req.user._id);
+            // Send WebSocket update
+            await websocketService.sendCampaignUpdate(campaign._id, req.user._id);
 
-        // Clean up uploaded file safely
-        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-            try {
-                fs.unlinkSync(req.file.path);
-            } catch (error) {
-                console.error('❌ Error deleting uploaded file:', error.message);
+            // Clean up uploaded file safely
+            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+                try {
+                    fs.unlinkSync(req.file.path);
+                } catch (error) {
+                    console.error('❌ Error deleting uploaded file:', error.message);
+                }
             }
-        }
 
-        res.json({
-            message: "Recipients uploaded successfully",
-            recipientsCount: recipients.length,
-            campaign: {
-                id: campaign._id,
-                status: campaign.status,
-                totalRecipients: campaign.progress.total
-            }
-        });
+            res.json({
+                message: "Recipients uploaded successfully",
+                recipientsCount: recipients.length,
+                campaign: {
+                    id: campaign._id,
+                    status: campaign.status,
+                    totalRecipients: campaign.progress.total
+                }
+            });
 
         } catch (err) {
             console.error(err);

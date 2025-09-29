@@ -1,7 +1,6 @@
 const express = require('express');
 const { authenticateJwt } = require('../middlewares/auth');
 const { 
-    checkSubscriptionLimit, 
     checkCampaignStartPermission, 
     getSubscriptionInfo 
 } = require('../middlewares/subscription');
@@ -47,7 +46,7 @@ router.delete('/:campaignId', deleteCampaign);
 router.put('/:campaignId/interval', setCampaignInterval);
 
 // File uploads with subscription validation
-router.post('/:campaignId/recipients', checkSubscriptionLimit, uploadRecipients);
+router.post('/:campaignId/recipients', uploadRecipients);
 router.post('/:campaignId/attachment', uploadAttachment);
 
 // WhatsApp integration
