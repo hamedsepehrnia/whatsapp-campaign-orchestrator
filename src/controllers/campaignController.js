@@ -27,7 +27,7 @@ const storage = multer.diskStorage({
 const upload = multer({ 
     storage: storage,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit
+        fileSize: 20 * 1024 * 1024 // 20MB limit
     },
     fileFilter: (req, file, cb) => {
         const allowedMimes = [
@@ -37,7 +37,8 @@ const upload = multer({
             'image/png',
             'image/gif',
             'application/pdf',
-            'text/plain'
+            'text/plain',
+            'application/zip' // .zip
         ];
         
         if (allowedMimes.includes(file.mimetype)) {
@@ -104,20 +105,66 @@ exports.uploadRecipients = [
             const worksheet = workbook.Sheets[sheetName];
             const data = xlsx.utils.sheet_to_json(worksheet);
 
-            // Extract phone numbers and names
-            const recipients = data.map(row => {
-                const phone = row.phone || row.Phone || row.PHONE || row['شماره تلفن'];
-                const name = row.name || row.Name || row.NAME || row['نام'];
-                
-                if (!phone) {
-                    throw new Error(`Missing phone number in row: ${JSON.stringify(row)}`);
-                }
+            // Validate Excel file structure
+            if (!data || data.length === 0) {
+                return res.status(400).json({ 
+                    message: "Excel file is empty or has no data" 
+                });
+            }
 
-                return {
-                    phone: phone.toString().replace(/\D/g, ''), // Remove non-digits
-                    name: name ? name.toString() : undefined
-                };
+            // Check if required columns exist
+            const firstRow = data[0];
+            const hasPhoneColumn = firstRow.phone || firstRow.Phone || firstRow.PHONE || firstRow['شماره تلفن'];
+            const hasNameColumn = firstRow.name || firstRow.Name || firstRow.NAME || firstRow['نام'];
+            
+            if (!hasPhoneColumn) {
+                return res.status(400).json({ 
+                    message: "Excel file must contain a 'phone' column (or 'Phone', 'PHONE', 'شماره تلفن')" 
+                });
+            }
+
+            // Extract phone numbers and names with proper error handling
+            const recipients = [];
+            const errors = [];
+            
+            data.forEach((row, index) => {
+                try {
+                    const phone = row.phone || row.Phone || row.PHONE || row['شماره تلفن'];
+                    const name = row.name || row.Name || row.NAME || row['نام'];
+                    
+                    if (!phone) {
+                        errors.push(`Row ${index + 2}: Missing phone number`);
+                        return; // Skip this row
+                    }
+
+                    // Validate phone number format
+                    const cleanPhone = phone.toString().replace(/\D/g, '');
+                    if (cleanPhone.length < 10) {
+                        errors.push(`Row ${index + 2}: Invalid phone number format`);
+                        return; // Skip this row
+                    }
+
+                    recipients.push({
+                        phone: cleanPhone,
+                        name: name ? name.toString() : undefined
+                    });
+                } catch (error) {
+                    errors.push(`Row ${index + 2}: ${error.message}`);
+                }
             });
+
+            // Check if we have any valid recipients
+            if (recipients.length === 0) {
+                return res.status(400).json({ 
+                    message: "No valid recipients found in Excel file",
+                    errors: errors
+                });
+            }
+
+            // Log warnings for skipped rows
+            if (errors.length > 0) {
+                console.warn(`⚠️ Excel upload warnings:`, errors);
+            }
 
             // Check subscription limits
             const user = await User.findById(req.user._id).populate('purchasedPackages');
@@ -159,6 +206,7 @@ exports.uploadRecipients = [
             res.json({
                 message: "Recipients uploaded successfully",
                 recipientsCount: recipients.length,
+                warnings: errors.length > 0 ? errors : undefined,
                 campaign: {
                     id: campaign._id,
                     status: campaign.status,
@@ -167,7 +215,9 @@ exports.uploadRecipients = [
             });
 
         } catch (err) {
-            console.error(err);
+            console.error('❌ Excel upload error:', err);
+            
+            // Clean up uploaded file safely
             if (req.file && req.file.path && fs.existsSync(req.file.path)) {
                 try {
                     fs.unlinkSync(req.file.path);
@@ -175,7 +225,19 @@ exports.uploadRecipients = [
                     console.error('❌ Error deleting uploaded file:', error.message);
                 }
             }
-            res.status(500).json({ message: "Server error", error: err.message });
+            
+            // Handle specific Excel parsing errors
+            if (err.message.includes('Cannot read property') || err.message.includes('undefined')) {
+                return res.status(400).json({ 
+                    message: "Invalid Excel file format. Please check your file structure.",
+                    error: "File format error"
+                });
+            }
+            
+            res.status(500).json({ 
+                message: "Server error while processing Excel file", 
+                error: err.message 
+            });
         }
     }
 ];
@@ -200,7 +262,25 @@ exports.uploadAttachment = [
                 return res.status(404).json({ message: "Campaign not found" });
             }
 
-            // Update campaign with attachment info
+            // Check if campaign is not running
+            if (campaign.status === 'running') {
+                return res.status(400).json({ 
+                    message: "Cannot upload attachment while campaign is running" 
+                });
+            }
+
+            // Delete old attachment if exists
+            if (campaign.attachment && campaign.attachment.path) {
+                if (fs.existsSync(campaign.attachment.path)) {
+                    try {
+                        fs.unlinkSync(campaign.attachment.path);
+                    } catch (error) {
+                        console.error('❌ Error deleting old attachment file:', error.message);
+                    }
+                }
+            }
+
+            // Update campaign with new attachment info
             campaign.attachment = {
                 filename: req.file.filename,
                 originalName: req.file.originalname,
@@ -234,6 +314,90 @@ exports.uploadAttachment = [
         }
     }
 ];
+
+// Delete attachment
+exports.deleteAttachment = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        
+        const campaign = await Campaign.findOne({ 
+            _id: campaignId, 
+            user: req.user._id 
+        });
+
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        // Check if campaign is not running
+        if (campaign.status === 'running') {
+            return res.status(400).json({ 
+                message: "Cannot delete attachment while campaign is running" 
+            });
+        }
+
+        // Delete attachment file if exists
+        if (campaign.attachment && campaign.attachment.path) {
+            if (fs.existsSync(campaign.attachment.path)) {
+                try {
+                    fs.unlinkSync(campaign.attachment.path);
+                } catch (error) {
+                    console.error('❌ Error deleting attachment file:', error.message);
+                }
+            }
+        }
+
+        // Remove attachment from campaign
+        campaign.attachment = undefined;
+        await campaign.save();
+
+        res.json({
+            message: "Attachment deleted successfully"
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Get attachment details
+exports.getAttachmentDetails = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        
+        const campaign = await Campaign.findOne({ 
+            _id: campaignId, 
+            user: req.user._id 
+        });
+
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (!campaign.attachment) {
+            return res.json({
+                hasAttachment: false,
+                attachment: null
+            });
+        }
+
+        res.json({
+            hasAttachment: true,
+            attachment: {
+                filename: campaign.attachment.filename,
+                originalName: campaign.attachment.originalName,
+                size: campaign.attachment.size,
+                mimetype: campaign.attachment.mimetype,
+                uploadDate: campaign.updatedAt
+            }
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
 
 // Generate WhatsApp QR code
 exports.generateQRCode = async (req, res) => {

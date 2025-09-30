@@ -19,15 +19,11 @@ const rateLimit = require("express-rate-limit");
 // MiddleWares
 app.use(express.json());
 app.use(helmet());
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 200 }));
-<<<<<<< HEAD
-app.use(cors());
-=======
+app.use(rateLimit({windowMs: 15 * 60 * 1000, max: 200}));
 app.use(cors({
     origin: process.env.FRONTEND_URL,
-  credentials: true    
+    credentials: true
 }));
->>>>>>> f0d7df4 (add cros and session config for cookie)
 app.use(morgan("dev"));
 
 // session middleware
@@ -37,21 +33,17 @@ if (!process.env.SESSION_SECRET) {
 }
 app.use(
     session({
-        secret: sessionSecret,
-        resave: false,
-        saveUninitialized: false,
-<<<<<<< HEAD
-    })
-=======
-          cookie: {
-    httpOnly: true,
-    secure: false,
-    sameSite: "lax"
-  }
-        
-    }
-)
->>>>>>> f0d7df4 (add cros and session config for cookie)
+            secret: sessionSecret,
+            resave: false,
+            saveUninitialized: false,
+            cookie: {
+                httpOnly: true,
+                secure: false,
+                sameSite: "lax"
+            }
+
+        }
+    )
 )
 
 // Passport middleware
@@ -74,7 +66,7 @@ app.use("/api/campaigns", campaignRoutes)
 app.use((err, req, res, next) => {
     const status = err.status || 500;
     const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
+    res.status(status).json({message});
 });
 
 module.exports = app;

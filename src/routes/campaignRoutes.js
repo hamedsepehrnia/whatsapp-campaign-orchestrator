@@ -8,6 +8,8 @@ const {
     createCampaign,
     uploadRecipients,
     uploadAttachment,
+    deleteAttachment,
+    getAttachmentDetails,
     generateQRCode,
     checkConnection,
     startCampaign,
@@ -48,6 +50,8 @@ router.put('/:campaignId/interval', setCampaignInterval);
 // File uploads with subscription validation
 router.post('/:campaignId/recipients', uploadRecipients);
 router.post('/:campaignId/attachment', uploadAttachment);
+router.delete('/:campaignId/attachment', deleteAttachment);
+router.get('/:campaignId/attachment', getAttachmentDetails);
 
 // WhatsApp integration
 router.post('/:campaignId/qr-code', generateQRCode);
