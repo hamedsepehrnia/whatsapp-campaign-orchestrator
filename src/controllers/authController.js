@@ -49,6 +49,14 @@ exports.login = async (req, res) => {
         const accessToken = generateAccessToken(user);
         const refreshToken = await generateRefreshToken(user);
         
+        // Store JWT token in session for frontend convenience
+        if (req.session) {
+            req.session.token = accessToken;
+            req.session.jwt = accessToken;
+            req.session.userId = user._id;
+            req.session.userRole = user.role;
+        }
+        
         res.json({
             message: 'Login successful',
             accessToken,
@@ -119,6 +127,15 @@ exports.logout = async (req, res) => {
             );
         }
         
+        // Clear session data
+        if (req.session) {
+            req.session.destroy((err) => {
+                if (err) {
+                    console.error('Session destroy error:', err);
+                }
+            });
+        }
+        
         res.json({ message: 'Logout successful' });
         
     } catch (error) {
@@ -137,6 +154,15 @@ exports.logoutAll = async (req, res) => {
             { user: userId },
             { isRevoked: true }
         );
+        
+        // Clear current session
+        if (req.session) {
+            req.session.destroy((err) => {
+                if (err) {
+                    console.error('Session destroy error:', err);
+                }
+            });
+        }
         
         res.json({ message: 'Logged out from all devices' });
         

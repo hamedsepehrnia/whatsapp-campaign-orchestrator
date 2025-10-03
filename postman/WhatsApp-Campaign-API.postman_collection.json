@@ -282,6 +282,303 @@
           "response": []
         },
         {
+          "name": "Upload Temporary Attachment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "attachment",
+                  "type": "file",
+                  "src": "sample-image.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/attachment/temp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "attachment", "temp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Attachment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tempFilename\": \"temp-attachment-1234567890.jpg\",\n  \"originalName\": \"my-image.jpg\",\n  \"mimetype\": \"image/jpeg\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/attachment/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "attachment", "confirm"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Serve Temporary File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/temp-files/temp-attachment-1234567890.jpg",
+              "host": ["{{base_url}}"],
+              "path": ["api", "temp-files", "temp-attachment-1234567890.jpg"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clean Up Temporary Files",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/cleanup-temp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "cleanup-temp"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Campaign Preview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/preview",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "preview"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm and Start Campaign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/confirm-and-start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "confirm-and-start"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Campaign Step Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/steps",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "steps"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Navigate to Step",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step\": 3\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/navigate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "navigate"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Go Back Step",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/go-back",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "go-back"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset to Step",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/reset",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "reset"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Campaign Interval and Schedule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"interval\": \"10s\",\n  \"sendType\": \"scheduled\",\n  \"scheduledAt\": \"2024-01-15T14:30:00.000Z\",\n  \"timezone\": \"Asia/Tehran\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/interval",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "interval"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Campaign Interval (Immediate)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"interval\": \"10s\",\n  \"sendType\": \"immediate\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/interval",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "interval"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Scheduled Campaigns",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/scheduled",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "scheduled"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Scheduled Campaign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/cancel-schedule",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "cancel-schedule"]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Generate QR Code",
           "request": {
             "method": "POST",

@@ -5,6 +5,70 @@
 http://localhost:3000
 ```
 
+## Authentication Methods
+
+### JWT Token-Based Authentication
+Most APIs use JWT tokens for authentication:
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Token Endpoints:**
+- Login: `POST /api/auth/login`
+- Register: `POST /api/auth/register`
+- Refresh Token: `POST /api/auth/refresh`
+- Logout: `POST /api/auth/logout`
+
+**Session-Based Authentication (New):**
+The system now supports automatic token extraction from session cookies:
+
+**How it works:**
+1. User logs in via `POST /api/auth/login`
+2. JWT token is automatically stored in session cookie
+3. Frontend can make requests without manually adding Authorization header
+4. Middleware automatically extracts token from session
+
+**Benefits:**
+- No need to manually manage Authorization headers
+- Automatic token storage in session
+- Seamless frontend integration
+- Fallback to manual Authorization header if needed
+
+**Frontend Implementation Example:**
+```javascript
+// Login request (token automatically stored in session)
+const loginResponse = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+    credentials: 'include' // Important: include cookies
+});
+
+// Subsequent requests (no Authorization header needed)
+const campaignsResponse = await fetch('/api/campaigns', {
+    credentials: 'include' // Session cookie automatically sent
+});
+
+// Still works with manual Authorization header
+const manualResponse = await fetch('/api/campaigns', {
+    headers: { 'Authorization': `Bearer ${token}` }
+});
+```
+
+### Session-Based Authentication
+Some endpoints use session-based authentication:
+
+**Session Endpoints:**
+- Admin Login: `POST /api/admin/login`
+- Admin Logout: `POST /api/admin/logout`
+
+### Public Endpoints
+These endpoints don't require authentication:
+
+**Public Endpoints:**
+- Health Check: `GET /api/health`
+- Download Excel Template: `GET /api/campaigns/excel-template/download`
+- Serve Temporary Files: `GET /api/temp-files/:filename`
+
 ## Authentication
 - **JWT Token**: Required for protected endpoints
 - **Session Cookie**: Required for profile endpoints
@@ -738,6 +802,19 @@ Get user's subscription information and message quota.
 }
 ```
 
+### Campaign Wizard Flow
+
+The campaign creation follows an 8-step wizard:
+
+1. **Step 1: تعریف کمپین و متن پیام** - Create campaign and message text
+2. **Step 2: آپلود فایل Excel مخاطبین** - Upload Excel file with recipients
+3. **Step 3: آپلود فایل ضمیمه (اختیاری)** - Upload attachment (optional)
+4. **Step 4: تنظیم فاصله ارسال** - Set sending interval and schedule
+5. **Step 5: اتصال WhatsApp** - Connect WhatsApp
+6. **Step 6: پیش‌نمایش و تایید** - Preview and confirm
+7. **Step 7: شروع ارسال** - Start sending
+8. **Step 8: گزارش نهایی** - Final report
+
 ### Create Campaign
 **POST** `/api/campaigns`
 
@@ -801,36 +878,6 @@ Get the current step status of a campaign in the 8-step flow.
 }
 ```
 
-### Set Campaign Interval
-**PUT** `/api/campaigns/:campaignId/interval`
-
-Set the message sending interval for a campaign.
-
-**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
-
-**Request Body:**
-```json
-{
-  "interval": "10s"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Campaign interval updated successfully",
-  "campaign": {
-    "id": "507f1f77bcf86cd799439011",
-    "interval": "10s",
-    "status": "draft"
-  }
-}
-```
-
-**Valid Intervals:**
-- `5s` - 5 seconds between messages
-- `10s` - 10 seconds between messages  
-- `20s` - 20 seconds between messages
 
 ### Download Excel Template
 **GET** `/api/campaigns/excel-template/download`
@@ -877,18 +924,16 @@ Upload Excel file with recipient phone numbers.
 ### Upload Attachment
 **POST** `/api/campaigns/:campaignId/attachment`
 
-Upload file attachment (image, PDF, ZIP, etc.). If an attachment already exists, it will be replaced.
+Upload file attachment for campaign. If an attachment already exists, it will be replaced.
 
 **Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
 
 **Request:** `multipart/form-data`
-- `attachment`: File (image, PDF, ZIP, text)
+- `attachment`: File (any type except dangerous formats)
 
 **Allowed File Types:**
-- Images: JPEG, PNG, GIF
-- Documents: PDF, Text
-- Archives: ZIP
-- Excel: XLSX, XLS
+- All file types are allowed except dangerous formats (executable files, etc.)
+- Examples: Images (JPEG, PNG, GIF), Documents (PDF, DOC, TXT), Archives (ZIP, RAR), Excel (XLSX, XLS), etc.
 
 **Max File Size:** 20MB
 
@@ -952,6 +997,386 @@ Delete the campaign's attachment. Cannot be done while campaign is running.
 ```json
 {
   "message": "Cannot delete attachment while campaign is running"
+}
+```
+
+### Upload Temporary Attachment
+**POST** `/api/campaigns/:campaignId/attachment/temp`
+
+Upload file attachment temporarily for preview before final confirmation.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Request:** `multipart/form-data`
+- `attachment`: File (any type except dangerous formats)
+
+**Response:**
+```json
+{
+  "message": "Temporary attachment uploaded successfully",
+  "file": {
+    "filename": "temp-attachment-1234567890.jpg",
+    "originalName": "my-image.jpg",
+    "size": 1024000,
+    "mimetype": "image/jpeg",
+    "tempPath": "uploads/temp/temp-attachment-1234567890.jpg",
+    "url": "/api/temp-files/temp-attachment-1234567890.jpg"
+  }
+}
+```
+
+### Confirm Attachment
+**POST** `/api/campaigns/:campaignId/attachment/confirm`
+
+Confirm temporary attachment and move to permanent storage.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Request Body:**
+```json
+{
+  "tempFilename": "temp-attachment-1234567890.jpg",
+  "originalName": "my-image.jpg",
+  "mimetype": "image/jpeg"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Attachment confirmed and saved successfully",
+  "attachment": {
+    "filename": "attachment-1234567890.jpg",
+    "originalName": "my-image.jpg",
+    "size": 1024000,
+    "mimetype": "image/jpeg"
+  }
+}
+```
+
+### Serve Temporary Files
+**GET** `/api/temp-files/:filename`
+
+Serve temporary files for preview.
+
+**Response:** File content with appropriate headers.
+
+### Clean Up Temporary Files
+**POST** `/api/campaigns/cleanup-temp`
+
+Clean up old temporary files (older than 24 hours).
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:**
+```json
+{
+  "message": "Cleaned up 5 temporary files",
+  "cleanedCount": 5
+}
+```
+
+### Get Campaign Preview
+**GET** `/api/campaigns/:campaignId/preview`
+
+Get campaign preview for wizard step 6 with recipient cards.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:**
+```json
+{
+  "message": "Campaign preview retrieved successfully",
+  "campaign": {
+    "id": "campaign_id",
+    "message": "سلام، روزت بخیر 🌹",
+    "totalRecipients": 150,
+    "interval": "10s",
+    "hasAttachment": true,
+    "attachment": {
+      "filename": "image1.jpg",
+      "size": 2048000,
+      "type": "image/jpeg"
+    },
+    "whatsappConnected": true,
+    "status": "ready"
+  },
+  "recipients": [
+    {
+      "id": 1,
+      "phone": "09121234567",
+      "name": "علی احمدی",
+      "message": "سلام، روزت بخیر 🌹",
+      "attachment": {
+        "filename": "image1.jpg",
+        "size": 2048000,
+        "type": "image/jpeg"
+      }
+    }
+  ],
+  "preview": {
+    "totalCards": 150,
+    "sampleCards": [...],
+    "hasMore": true
+  }
+}
+```
+
+### Confirm and Start Campaign
+**POST** `/api/campaigns/:campaignId/confirm-and-start`
+
+Confirm campaign and start sending messages immediately.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:**
+```json
+{
+  "message": "Campaign confirmed and started successfully",
+  "campaign": {
+    "id": "campaign_id",
+    "status": "running",
+    "totalRecipients": 150,
+    "startedAt": "2024-01-15T10:30:00.000Z"
+  }
+}
+```
+
+### Get Campaign Step Status
+**GET** `/api/campaigns/:campaignId/steps`
+
+Get campaign step status for wizard navigation.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:**
+```json
+{
+  "message": "Campaign step status retrieved successfully",
+  "campaign": {
+    "id": "campaign_id",
+    "status": "ready",
+    "currentStep": 4,
+    "totalSteps": 6
+  },
+  "steps": {
+    "step1": {
+      "name": "تعریف کمپین و متن پیام",
+      "completed": true,
+      "canNavigate": true
+    },
+    "step2": {
+      "name": "آپلود فایل Excel مخاطبین",
+      "completed": true,
+      "canNavigate": true
+    },
+    "step3": {
+      "name": "آپلود فایل ضمیمه (اختیاری)",
+      "completed": false,
+      "canNavigate": true,
+      "optional": true
+    },
+    "step4": {
+      "name": "تنظیم فاصله ارسال",
+      "completed": true,
+      "canNavigate": true
+    },
+    "step5": {
+      "name": "اتصال WhatsApp",
+      "completed": false,
+      "canNavigate": true
+    },
+    "step6": {
+      "name": "پیش‌نمایش و تایید",
+      "completed": false,
+      "canNavigate": false
+    }
+  },
+  "navigation": {
+    "canGoBack": true,
+    "canGoForward": false,
+    "availableSteps": ["step1", "step2", "step3", "step4", "step5"]
+  }
+}
+```
+
+### Navigate to Step
+**POST** `/api/campaigns/:campaignId/navigate`
+
+Navigate to specific wizard step.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Request Body:**
+```json
+{
+  "step": 3
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Navigating to step 3",
+  "step": {
+    "number": 3,
+    "name": "آپلود فایل ضمیمه (اختیاری)",
+    "completed": false,
+    "optional": true
+  },
+  "campaign": {
+    "id": "campaign_id",
+    "status": "ready",
+    "message": "سلام، روزت بخیر 🌹",
+    "recipients": 150,
+    "attachment": null,
+    "interval": "10s",
+    "whatsappConnected": false
+  }
+}
+```
+
+### Go Back Step
+**POST** `/api/campaigns/:campaignId/go-back`
+
+Go back to previous wizard step.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:**
+```json
+{
+  "message": "Going back to step 3",
+  "step": {
+    "number": 3,
+    "name": "آپلود فایل ضمیمه (اختیاری)",
+    "completed": false
+  },
+  "campaign": {
+    "id": "campaign_id",
+    "status": "ready"
+  }
+}
+```
+
+### Reset to Step
+**POST** `/api/campaigns/:campaignId/reset`
+
+Reset campaign to specific step (clears data from that step onwards).
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Request Body:**
+```json
+{
+  "step": 2
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Campaign reset to step 2",
+  "campaign": {
+    "id": "campaign_id",
+    "status": "draft",
+    "message": "سلام، روزت بخیر 🌹",
+    "recipients": 0,
+    "attachment": null,
+    "interval": "10s",
+    "whatsappConnected": false
+  }
+}
+```
+
+### Set Campaign Interval and Schedule
+**PUT** `/api/campaigns/:campaignId/interval`
+
+Set campaign interval and schedule settings.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Request Body:**
+```json
+{
+  "interval": "10s",
+  "sendType": "scheduled",
+  "scheduledAt": "2024-01-15T14:30:00.000Z",
+  "timezone": "Asia/Tehran"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Campaign settings updated successfully",
+  "campaign": {
+    "id": "campaign_id",
+    "interval": "10s",
+    "schedule": {
+      "isScheduled": true,
+      "scheduledAt": "2024-01-15T14:30:00.000Z",
+      "timezone": "Asia/Tehran",
+      "sendType": "scheduled"
+    },
+    "status": "ready"
+  }
+}
+```
+
+**Request Body (Immediate):**
+```json
+{
+  "interval": "10s",
+  "sendType": "immediate"
+}
+```
+
+### Get Scheduled Campaigns
+**GET** `/api/campaigns/scheduled`
+
+Get all scheduled campaigns for the user.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:**
+```json
+{
+  "message": "Scheduled campaigns retrieved successfully",
+  "campaigns": [
+    {
+      "id": "campaign_id",
+      "message": "سلام، روزت بخیر 🌹",
+      "recipients": 150,
+      "scheduledAt": "2024-01-15T14:30:00.000Z",
+      "timezone": "Asia/Tehran",
+      "interval": "10s",
+      "status": "ready"
+    }
+  ]
+}
+```
+
+### Cancel Scheduled Campaign
+**POST** `/api/campaigns/:campaignId/cancel-schedule`
+
+Cancel a scheduled campaign.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Response:**
+```json
+{
+  "message": "Scheduled campaign cancelled successfully",
+  "campaign": {
+    "id": "campaign_id",
+    "schedule": {
+      "isScheduled": false,
+      "scheduledAt": null,
+      "timezone": "Asia/Tehran",
+      "sendType": "immediate"
+    }
+  }
 }
 ```
 
@@ -1585,6 +2010,53 @@ ws.onclose = () => {
 - **CORS**: Cross-origin resource sharing
 
 ---
+
+## 🆕 Recent Updates
+
+### New Features Added:
+1. **Temporary File Storage System**
+   - Upload files temporarily for preview
+   - Confirm files before permanent storage
+   - Automatic cleanup of old temporary files
+
+2. **Campaign Preview System**
+   - Step 6: Preview recipient cards before sending
+   - Display phone, message, and attachment for each recipient
+   - Final confirmation before campaign start
+
+3. **Wizard Navigation**
+   - Navigate between wizard steps
+   - Go back to previous steps
+   - Reset campaign data from specific step
+
+4. **Scheduled Campaigns**
+   - Set specific date and time for sending
+   - Timezone support
+   - Cancel scheduled campaigns
+
+5. **Enhanced File Support**
+   - All file types allowed (except dangerous formats)
+   - Increased file size limit to 20MB
+   - Better error handling for Excel files
+
+6. **Improved Error Handling**
+   - Better Excel file validation
+   - Graceful handling of missing columns
+   - Detailed error messages for debugging
+
+### API Endpoints Added:
+- `POST /api/campaigns/:campaignId/attachment/temp` - Upload temporary attachment
+- `POST /api/campaigns/:campaignId/attachment/confirm` - Confirm attachment
+- `GET /api/campaigns/:campaignId/preview` - Get campaign preview
+- `POST /api/campaigns/:campaignId/confirm-and-start` - Confirm and start campaign
+- `GET /api/campaigns/:campaignId/steps` - Get step status
+- `POST /api/campaigns/:campaignId/navigate` - Navigate to step
+- `POST /api/campaigns/:campaignId/go-back` - Go back step
+- `POST /api/campaigns/:campaignId/reset` - Reset to step
+- `GET /api/campaigns/scheduled` - Get scheduled campaigns
+- `POST /api/campaigns/:campaignId/cancel-schedule` - Cancel schedule
+- `GET /api/temp-files/:filename` - Serve temporary files
+- `POST /api/campaigns/cleanup-temp` - Clean up temporary files
 
 ## 📞 Support
 

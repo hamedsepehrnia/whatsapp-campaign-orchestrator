@@ -36,6 +36,25 @@ const campaignSchema = new mongoose.Schema({
         enum: ['5s', '10s', '20s'],
         default: '10s'
     },
+    schedule: {
+        isScheduled: {
+            type: Boolean,
+            default: false
+        },
+        scheduledAt: {
+            type: Date,
+            default: null
+        },
+        timezone: {
+            type: String,
+            default: 'Asia/Tehran'
+        },
+        sendType: {
+            type: String,
+            enum: ['immediate', 'scheduled'],
+            default: 'immediate'
+        }
+    },
     status: {
         type: String,
         enum: ['draft', 'ready', 'running', 'completed', 'paused', 'failed'],

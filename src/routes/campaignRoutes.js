@@ -8,8 +8,18 @@ const {
     createCampaign,
     uploadRecipients,
     uploadAttachment,
+    uploadTempAttachment,
+    confirmAttachment,
+    serveTempFile,
+    cleanupTempFiles,
     deleteAttachment,
     getAttachmentDetails,
+    getCampaignPreview,
+    confirmAndStartCampaign,
+    getCampaignStepStatus,
+    navigateToStep,
+    goBackStep,
+    resetToStep,
     generateQRCode,
     checkConnection,
     startCampaign,
@@ -22,7 +32,8 @@ const {
     resumeCampaign,
     deleteCampaign,
     setCampaignInterval,
-    getCampaignStepStatus
+    getScheduledCampaigns,
+    cancelScheduledCampaign
 } = require('../controllers/campaignController');
 const { downloadExcelTemplate } = require('../controllers/adminController');
 
@@ -41,17 +52,36 @@ router.get('/subscription', getSubscriptionInfo, require('../controllers/campaig
 router.post('/', createCampaign);
 router.get('/', getMyCampaigns);
 router.get('/:campaignId', getCampaignDetails);
-router.get('/:campaignId/steps', getCampaignStepStatus);
 router.delete('/:campaignId', deleteCampaign);
 
 // Campaign settings
 router.put('/:campaignId/interval', setCampaignInterval);
+
+// Scheduled campaigns
+router.get('/scheduled', getScheduledCampaigns);
+router.post('/:campaignId/cancel-schedule', cancelScheduledCampaign);
 
 // File uploads with subscription validation
 router.post('/:campaignId/recipients', uploadRecipients);
 router.post('/:campaignId/attachment', uploadAttachment);
 router.delete('/:campaignId/attachment', deleteAttachment);
 router.get('/:campaignId/attachment', getAttachmentDetails);
+
+// Temporary file management
+router.post('/:campaignId/attachment/temp', uploadTempAttachment);
+router.post('/:campaignId/attachment/confirm', confirmAttachment);
+router.get('/temp-files/:filename', serveTempFile);
+router.post('/cleanup-temp', cleanupTempFiles);
+
+// Campaign preview and confirmation
+router.get('/:campaignId/preview', getCampaignPreview);
+router.post('/:campaignId/confirm-and-start', confirmAndStartCampaign);
+
+// Wizard navigation
+router.get('/:campaignId/steps', getCampaignStepStatus);
+router.post('/:campaignId/navigate', navigateToStep);
+router.post('/:campaignId/go-back', goBackStep);
+router.post('/:campaignId/reset', resetToStep);
 
 // WhatsApp integration
 router.post('/:campaignId/qr-code', generateQRCode);
