@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateJwt } = require('../middlewares/auth');
+const { authenticateSession } = require('../middlewares/auth');
 const { refreshToken, logout, logoutAll } = require('../controllers/authController');
 
 const router = express.Router();
@@ -11,6 +11,6 @@ router.post('/refresh', refreshToken);
 router.post('/logout', logout);
 
 // Logout from all devices (requires authentication)
-router.post('/logout-all', authenticateJwt, logoutAll);
+router.post('/logout-all', authenticateSession, logoutAll);
 
 module.exports = router;

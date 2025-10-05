@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateJwt, authorizeRoles } = require('../middlewares/auth');
+const { authenticateSession, authorizeRoles } = require('../middlewares/auth');
 const { listUsers, updateUserRole, updateUserStatus, listTransactions, dashboardStats, uploadExcelTemplate, downloadExcelTemplate, getExcelTemplateInfo } = require('../controllers/adminController');
 const { validate } = require('../middlewares/validate');
 const { adminUpdateRoleSchema, adminUpdateStatusSchema } = require('../validators/schemas');
@@ -33,7 +33,7 @@ const upload = multer({
     }
 });
 
-router.use(authenticateJwt, authorizeRoles('admin', 'superAdmin'));
+router.use(authenticateSession, authorizeRoles('admin', 'superAdmin'));
 
 router.get('/users', listUsers);
 router.patch('/users/:userId/role', validate(adminUpdateRoleSchema), updateUserRole);

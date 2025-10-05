@@ -1,13 +1,13 @@
 const express = require('express');
-const { authenticateJwt } = require('../middlewares/auth');
+const { authenticateSession } = require('../middlewares/auth');
 const { createOrder, getMyOrders } = require('../controllers/orderController');
 const { validate } = require('../middlewares/validate');
 const { orderCreateSchema } = require('../validators/schemas');
 
 const router = express.Router();
 
-router.post('/', authenticateJwt, validate(orderCreateSchema), createOrder);
-router.get('/me', authenticateJwt, getMyOrders);
+router.post('/', authenticateSession, validate(orderCreateSchema), createOrder);
+router.get('/me', authenticateSession, getMyOrders);
 
 module.exports = router;
 

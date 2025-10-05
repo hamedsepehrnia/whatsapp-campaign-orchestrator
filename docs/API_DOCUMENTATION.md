@@ -7,51 +7,87 @@ http://localhost:3000
 
 ## Authentication Methods
 
-### JWT Token-Based Authentication
-Most APIs use JWT tokens for authentication:
-
-**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
-
-**Token Endpoints:**
-- Login: `POST /api/auth/login`
-- Register: `POST /api/auth/register`
-- Refresh Token: `POST /api/auth/refresh`
-- Logout: `POST /api/auth/logout`
-
-**Session-Based Authentication (New):**
-The system now supports automatic token extraction from session cookies:
+### 🔐 Session-Based Authentication (Primary - Recommended)
+The system now uses **session-based authentication** as the primary method:
 
 **How it works:**
-1. User logs in via `POST /api/auth/login`
+1. User logs in via `POST /api/user/login`
 2. JWT token is automatically stored in session cookie
 3. Frontend can make requests without manually adding Authorization header
 4. Middleware automatically extracts token from session
 
 **Benefits:**
-- No need to manually manage Authorization headers
-- Automatic token storage in session
-- Seamless frontend integration
-- Fallback to manual Authorization header if needed
+- ✅ **No Authorization header needed** - Frontend doesn't need to manage tokens manually
+- ✅ **Automatic token storage** - JWT stored securely in session cookie
+- ✅ **Seamless frontend integration** - Just use `credentials: 'include'`
+- ✅ **Fallback support** - Falls back to Authorization header if needed
+- ✅ **Database resilience** - Works even if database is temporarily unavailable
 
-**Frontend Implementation Example:**
+**Frontend Implementation:**
 ```javascript
-// Login request (token automatically stored in session)
-const loginResponse = await fetch('/api/auth/login', {
+// 1. Login (token automatically stored in session)
+const loginResponse = await fetch('/api/user/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-    credentials: 'include' // Important: include cookies
+    credentials: 'include', // Important: include cookies
+    body: JSON.stringify({ email, password })
 });
 
-// Subsequent requests (no Authorization header needed)
+// 2. All subsequent requests (no Authorization header needed!)
 const campaignsResponse = await fetch('/api/campaigns', {
+    method: 'GET',
     credentials: 'include' // Session cookie automatically sent
 });
+
+const createCampaignResponse = await fetch('/api/campaigns', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Session cookie automatically sent
+    body: JSON.stringify({ message: 'Hello World' })
+});
+```
+
+### 🔄 JWT Token-Based Authentication (Fallback)
+Traditional JWT authentication is still supported as fallback:
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**When to use:**
+- When session authentication is not available
+- For API testing with tools like Postman
+- For server-to-server communication
+
+**Example:**
+```javascript
+const response = await fetch('/api/campaigns', {
+    headers: {
+        'Authorization': 'Bearer your-jwt-token'
+    }
+});
+```
 
 // Still works with manual Authorization header
 const manualResponse = await fetch('/api/campaigns', {
     headers: { 'Authorization': `Bearer ${token}` }
 });
+```
+
+## 🔧 Recent Updates
+
+### Session Authentication Fix (December 2024)
+**Problem:** Frontend developers had to manually manage Authorization headers for every request, and tokens would expire requiring re-login.
+
+**Solution:** Implemented session-based authentication as the primary method:
+- ✅ **Automatic token extraction** from session cookies
+- ✅ **No Authorization header required** for most requests  
+- ✅ **Fallback support** to traditional JWT authentication
+- ✅ **Database resilience** - works even if database is temporarily unavailable
+
+**Impact:**
+- 🚀 **Improved developer experience** - No manual token management
+- 🔒 **Enhanced security** - Tokens stored in httpOnly cookies
+- 🛠️ **Better reliability** - Fallback mechanisms for edge cases
+- 📱 **Seamless frontend integration** - Just use `credentials: 'include'`
 ```
 
 ### Session-Based Authentication

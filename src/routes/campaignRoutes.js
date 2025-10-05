@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticateJwt } = require('../middlewares/auth');
+const { authenticateSession } = require('../middlewares/auth');
 const { 
     checkCampaignStartPermission, 
     getSubscriptionInfo 
@@ -43,7 +43,7 @@ const router = express.Router();
 router.get('/excel-template/download', downloadExcelTemplate);
 
 // All other routes require JWT authentication
-router.use(authenticateJwt);
+router.use(authenticateSession);
 
 // Subscription info
 router.get('/subscription', getSubscriptionInfo, require('../controllers/campaignController').getSubscriptionInfo);

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "WhatsApp Campaign API",
-    "description": "Complete API collection for WhatsApp Campaign Messaging system with real-time WebSocket support",
+    "description": "Complete API collection for WhatsApp Campaign Messaging system with real-time WebSocket support. Updated with Session-Based Authentication (December 2024).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -75,7 +75,47 @@
           "response": []
         },
         {
-          "name": "Login",
+          "name": "Login (Session-Based)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ali@example.com\",\n  \"password\": \"Passw0rd123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('access_token', response.accessToken);",
+                  "    pm.environment.set('refresh_token', response.refreshToken);",
+                  "    console.log('✅ Login successful - Session cookie automatically set');",
+                  "    console.log('✅ Access token saved:', response.accessToken);",
+                  "    console.log('ℹ️  Note: For session-based auth, no Authorization header needed in subsequent requests');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login (Traditional JWT)",
           "request": {
             "method": "POST",
             "header": [
@@ -118,7 +158,35 @@
       "name": "📱 Campaign Management",
       "item": [
         {
-          "name": "Get Subscription Info",
+          "name": "Get Subscription Info (Session-Based)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/subscription",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "subscription"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    console.log('✅ Session authentication successful - No Authorization header needed!');",
+                  "} else if (pm.response.code === 401) {",
+                  "    console.log('❌ Session authentication failed - Make sure to login first');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get Subscription Info (Traditional JWT)",
           "request": {
             "method": "GET",
             "header": [
