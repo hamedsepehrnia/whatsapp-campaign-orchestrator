@@ -45,11 +45,34 @@ const whatsappService = {
                     }
                 });
 
-                clients.set(campaignId, { client, userId, status: 'pending' });
+                // Set timeout for client initialization (30 seconds)
+                const initTimeout = setTimeout(async () => {
+                    console.log(`⏰ Timeout reached for campaign ${campaignId}, cleaning up...`);
+                    try {
+                        if (client && typeof client.destroy === 'function') {
+                            await client.destroy();
+                        }
+                    } catch (error) {
+                        console.error(`Error destroying client on timeout:`, error);
+                    }
+                    this.cleanupSession(campaignId);
+                    
+                    // Send timeout error via WebSocket
+                    await websocketService.sendErrorUpdate(campaignId, 'WhatsApp session initialization timeout', userId);
+                }, 30000);
+
+                clients.set(campaignId, { client, userId, status: 'pending', timeout: initTimeout });
 
                 // QR Code event
                 client.on('qr', async (qr) => {
                     console.log(`📱 QR code generated for campaign ${campaignId}`);
+                    
+                    // Clear timeout since QR code was generated
+                    const session = clients.get(campaignId);
+                    if (session && session.timeout) {
+                        clearTimeout(session.timeout);
+                        session.timeout = null;
+                    }
                     
                     // Update campaign with QR code
                     await Campaign.findByIdAndUpdate(campaignId, {
@@ -64,6 +87,13 @@ const whatsappService = {
                 // Client ready event
                 client.on('ready', async () => {
                     console.log(`✅ WhatsApp client ready for campaign ${campaignId}`);
+                    
+                    // Clear timeout since client is ready
+                    const session = clients.get(campaignId);
+                    if (session && session.timeout) {
+                        clearTimeout(session.timeout);
+                        session.timeout = null;
+                    }
                     
                     const clientInfo = {
                         number: client.info.wid.user,
@@ -84,6 +114,13 @@ const whatsappService = {
                 // Client disconnected event
                 client.on('disconnected', async (reason) => {
                     console.log(`❌ WhatsApp client disconnected for campaign ${campaignId}:`, reason);
+                    
+                    // Clear timeout
+                    const session = clients.get(campaignId);
+                    if (session && session.timeout) {
+                        clearTimeout(session.timeout);
+                        session.timeout = null;
+                    }
                     
                     // Update campaign status
                     await Campaign.findByIdAndUpdate(campaignId, {
@@ -110,6 +147,9 @@ const whatsappService = {
 
                 // Send error via WebSocket
                 await websocketService.sendErrorUpdate(campaignId, 'Failed to initialize WhatsApp client', userId);
+                
+                // Clean up session on error
+                this.cleanupSession(campaignId);
             }
         }
     },
@@ -345,6 +385,11 @@ const whatsappService = {
         const session = clients.get(campaignId);
         if (session) {
             try {
+                // Clear any existing timeout
+                if (session.timeout) {
+                    clearTimeout(session.timeout);
+                }
+                
                 if (session.client && typeof session.client.destroy === 'function') {
                     session.client.destroy();
                 }
@@ -363,6 +408,11 @@ const whatsappService = {
                 this.cleanupSession(campaignId);
             }
         }
+    },
+
+    // Check if campaign has active session
+    hasActiveSession(campaignId) {
+        return clients.has(campaignId);
     },
 
     // Get interval in milliseconds

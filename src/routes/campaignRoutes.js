@@ -33,7 +33,8 @@ const {
     deleteCampaign,
     setCampaignInterval,
     getScheduledCampaigns,
-    cancelScheduledCampaign
+    cancelScheduledCampaign,
+    forceCleanupSession
 } = require('../controllers/campaignController');
 const { downloadExcelTemplate } = require('../controllers/adminController');
 
@@ -86,6 +87,7 @@ router.post('/:campaignId/reset', resetToStep);
 // WhatsApp integration
 router.post('/:campaignId/qr-code', generateQRCode);
 router.get('/:campaignId/connection', checkConnection);
+router.post('/:campaignId/cleanup-session', forceCleanupSession);
 
 // Campaign control with permission checks
 router.post('/:campaignId/start', checkCampaignStartPermission, startCampaign);

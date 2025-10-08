@@ -1138,6 +1138,10 @@ exports.generateQRCode = async (req, res) => {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        // Clean up any existing session for this campaign first
+        console.log(`🧹 Cleaning up existing session for campaign ${campaignId}`);
+        whatsappService.cleanupSession(campaignId);
+
         // Generate unique session ID
         const sessionId = uuidv4();
         
@@ -1150,7 +1154,8 @@ exports.generateQRCode = async (req, res) => {
 
         await campaign.save();
 
-        // Initialize WhatsApp session
+        // Initialize WhatsApp session with timeout
+        console.log(`📱 Initializing new WhatsApp session for campaign ${campaignId}`);
         await whatsappService.prepareWhatsAppSessions([campaign], req.user._id);
 
         res.json({
@@ -1179,9 +1184,50 @@ exports.checkConnection = async (req, res) => {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        // Check if there's an active session in memory
+        const hasActiveSession = whatsappService.hasActiveSession(campaignId);
+
         res.json({
             isConnected: campaign.whatsappSession.isConnected,
-            lastActivity: campaign.whatsappSession.lastActivity
+            lastActivity: campaign.whatsappSession.lastActivity,
+            hasActiveSession: hasActiveSession,
+            sessionId: campaign.whatsappSession.sessionId
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Force cleanup WhatsApp session
+exports.forceCleanupSession = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        
+        const campaign = await Campaign.findOne({ 
+            _id: campaignId, 
+            user: req.user._id 
+        });
+
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        // Force cleanup session
+        whatsappService.cleanupSession(campaignId);
+
+        // Reset campaign WhatsApp session
+        campaign.whatsappSession = {
+            isConnected: false,
+            sessionId: null,
+            lastActivity: null
+        };
+        await campaign.save();
+
+        res.json({
+            message: "Session cleaned up successfully",
+            campaignId: campaignId
         });
 
     } catch (err) {
