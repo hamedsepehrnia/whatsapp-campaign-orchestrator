@@ -8,6 +8,7 @@ const qrcode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 const websocketService = require('../services/websocketService');
 const whatsappService = require('../services/whatsappService');
+const { generateCampaignTitle, generateHumanReadableTitle } = require('../utils/persianDate');
 
 // Configure multer for temporary file uploads
 const tempStorage = multer.diskStorage({
@@ -135,15 +136,22 @@ exports.createCampaign = async (req, res) => {
             });
         }
 
+        // Generate automatic title based on Persian date
+        const autoTitle = generateCampaignTitle();
+        const humanReadableTitle = generateHumanReadableTitle();
+
         const campaign = await Campaign.create({
             user: req.user._id,
-            message
+            message,
+            title: autoTitle
         });
 
         res.status(201).json({
             message: "Campaign created successfully",
             campaign: {
                 id: campaign._id,
+                title: campaign.title,
+                humanReadableTitle: humanReadableTitle,
                 status: campaign.status
             }
         });
@@ -1394,28 +1402,164 @@ exports.resumeCampaign = async (req, res) => {
 // Get user's campaigns
 exports.getMyCampaigns = async (req, res) => {
     try {
-        const { status, page = 1, limit = 10 } = req.query;
+        const { 
+            status, 
+            title, 
+            startDate, 
+            endDate, 
+            page = 1, 
+            limit = 10 
+        } = req.query;
         
         const filter = { user: req.user._id };
+        
+        // Filter by status
         if (status) {
             filter.status = status;
+        }
+        
+        // Filter by title (case-insensitive search)
+        if (title) {
+            filter.title = { $regex: title, $options: 'i' };
+        }
+        
+        // Filter by date range
+        if (startDate || endDate) {
+            filter.createdAt = {};
+            if (startDate) {
+                filter.createdAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                filter.createdAt.$lte = new Date(endDate);
+            }
         }
 
         const campaigns = await Campaign.find(filter)
             .sort({ createdAt: -1 })
             .limit(limit * 1)
             .skip((page - 1) * limit)
-            .select('status progress createdAt startedAt completedAt');
+            .select('title status progress createdAt startedAt completedAt message');
 
         const total = await Campaign.countDocuments(filter);
 
+        // Add human readable titles to campaigns
+        const campaignsWithReadableTitles = campaigns.map(campaign => {
+            const campaignObj = campaign.toObject();
+            try {
+                campaignObj.humanReadableTitle = generateHumanReadableTitle(campaign.createdAt);
+            } catch (error) {
+                campaignObj.humanReadableTitle = campaign.title; // Fallback to original title
+            }
+            return campaignObj;
+        });
+
         res.json({
-            campaigns,
+            campaigns: campaignsWithReadableTitles,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 total,
                 pages: Math.ceil(total / limit)
+            },
+            filters: {
+                status: status || null,
+                title: title || null,
+                startDate: startDate || null,
+                endDate: endDate || null
+            }
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Search campaigns with advanced filters
+exports.searchCampaigns = async (req, res) => {
+    try {
+        const { 
+            query,
+            status, 
+            title, 
+            startDate, 
+            endDate,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+            page = 1, 
+            limit = 10 
+        } = req.query;
+        
+        const filter = { user: req.user._id };
+        
+        // General search query (searches in title and message)
+        if (query) {
+            filter.$or = [
+                { title: { $regex: query, $options: 'i' } },
+                { message: { $regex: query, $options: 'i' } }
+            ];
+        }
+        
+        // Filter by status
+        if (status) {
+            filter.status = status;
+        }
+        
+        // Filter by title (case-insensitive search)
+        if (title) {
+            filter.title = { $regex: title, $options: 'i' };
+        }
+        
+        // Filter by date range
+        if (startDate || endDate) {
+            filter.createdAt = {};
+            if (startDate) {
+                filter.createdAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                filter.createdAt.$lte = new Date(endDate);
+            }
+        }
+
+        // Sort configuration
+        const sortConfig = {};
+        sortConfig[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+        const campaigns = await Campaign.find(filter)
+            .sort(sortConfig)
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .select('title status progress createdAt startedAt completedAt message');
+
+        const total = await Campaign.countDocuments(filter);
+
+        // Add human readable titles to campaigns
+        const campaignsWithReadableTitles = campaigns.map(campaign => {
+            const campaignObj = campaign.toObject();
+            try {
+                campaignObj.humanReadableTitle = generateHumanReadableTitle(campaign.createdAt);
+            } catch (error) {
+                campaignObj.humanReadableTitle = campaign.title; // Fallback to original title
+            }
+            return campaignObj;
+        });
+
+        res.json({
+            campaigns: campaignsWithReadableTitles,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            },
+            filters: {
+                query: query || null,
+                status: status || null,
+                title: title || null,
+                startDate: startDate || null,
+                endDate: endDate || null,
+                sortBy,
+                sortOrder
             }
         });
 
@@ -1439,9 +1583,19 @@ exports.getCampaignDetails = async (req, res) => {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        // Generate human readable title
+        let humanReadableTitle;
+        try {
+            humanReadableTitle = generateHumanReadableTitle(campaign.createdAt);
+        } catch (error) {
+            humanReadableTitle = campaign.title; // Fallback to original title
+        }
+
         res.json({
             campaign: {
                 id: campaign._id,
+                title: campaign.title,
+                humanReadableTitle: humanReadableTitle,
                 message: campaign.message,
                 status: campaign.status,
                 progress: campaign.progress,

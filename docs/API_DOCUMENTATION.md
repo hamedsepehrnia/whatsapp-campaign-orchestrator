@@ -854,7 +854,7 @@ The campaign creation follows an 8-step wizard:
 ### Create Campaign
 **POST** `/api/campaigns`
 
-Create a new WhatsApp campaign.
+Create a new WhatsApp campaign with automatic title generation.
 
 **Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
 
@@ -871,10 +871,14 @@ Create a new WhatsApp campaign.
   "message": "Campaign created successfully",
   "campaign": {
     "id": "507f1f77bcf86cd799439011",
+    "title": "14040303",
+    "humanReadableTitle": "کمپین ۳ خرداد ۱۴۰۴",
     "status": "draft"
   }
 }
 ```
+
+**Note:** The `title` field is automatically generated based on the Persian date of creation (format: YYYYMMDD). The `humanReadableTitle` provides a Persian-readable version of the date.
 
 ### Get Campaign Step Status
 **GET** `/api/campaigns/:campaignId/steps`
@@ -1496,12 +1500,15 @@ Get real-time campaign progress.
 ### Get My Campaigns
 **GET** `/api/campaigns`
 
-Get list of user's campaigns.
+Get list of user's campaigns with filtering options.
 
 **Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
 
 **Query Parameters:**
 - `status` (optional): Filter by status (draft/ready/running/completed/paused/failed)
+- `title` (optional): Filter by campaign title (case-insensitive search)
+- `startDate` (optional): Filter campaigns created after this date (ISO format)
+- `endDate` (optional): Filter campaigns created before this date (ISO format)
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 10)
 
@@ -1511,6 +1518,8 @@ Get list of user's campaigns.
   "campaigns": [
     {
       "_id": "507f1f77bcf86cd799439011",
+      "title": "14040303",
+      "humanReadableTitle": "کمپین ۳ خرداد ۱۴۰۴",
       "status": "completed",
       "progress": {
         "total": 150,
@@ -1519,7 +1528,8 @@ Get list of user's campaigns.
       },
       "createdAt": "2024-01-01T00:00:00.000Z",
       "startedAt": "2024-01-01T12:00:00.000Z",
-      "completedAt": "2024-01-01T12:30:00.000Z"
+      "completedAt": "2024-01-01T12:30:00.000Z",
+      "message": "سلام! پیشنهاد ویژه برای شما..."
     }
   ],
   "pagination": {
@@ -1527,6 +1537,68 @@ Get list of user's campaigns.
     "limit": 10,
     "total": 1,
     "pages": 1
+  },
+  "filters": {
+    "status": null,
+    "title": null,
+    "startDate": null,
+    "endDate": null
+  }
+}
+```
+
+### Search Campaigns
+**GET** `/api/campaigns/search`
+
+Advanced search for campaigns with multiple filters and sorting options.
+
+**Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Query Parameters:**
+- `query` (optional): General search term (searches in title and message)
+- `status` (optional): Filter by status (draft/ready/running/completed/paused/failed)
+- `title` (optional): Filter by campaign title (case-insensitive search)
+- `startDate` (optional): Filter campaigns created after this date (ISO format)
+- `endDate` (optional): Filter campaigns created before this date (ISO format)
+- `sortBy` (optional): Sort field (createdAt/startedAt/completedAt/title) (default: createdAt)
+- `sortOrder` (optional): Sort order (asc/desc) (default: desc)
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+
+**Response:**
+```json
+{
+  "campaigns": [
+    {
+      "_id": "507f1f77bcf86cd799439011",
+      "title": "14040303",
+      "humanReadableTitle": "کمپین ۳ خرداد ۱۴۰۴",
+      "status": "completed",
+      "progress": {
+        "total": 150,
+        "sent": 148,
+        "failed": 2
+      },
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "startedAt": "2024-01-01T12:00:00.000Z",
+      "completedAt": "2024-01-01T12:30:00.000Z",
+      "message": "سلام! پیشنهاد ویژه برای شما..."
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "pages": 1
+  },
+  "filters": {
+    "query": "فروش",
+    "status": "completed",
+    "title": null,
+    "startDate": "2024-01-01T00:00:00.000Z",
+    "endDate": "2024-01-31T23:59:59.999Z",
+    "sortBy": "createdAt",
+    "sortOrder": "desc"
   }
 }
 ```

@@ -6,6 +6,11 @@ const campaignSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    title: {
+        type: String,
+        required: false,
+        trim: true
+    },
     message: {
         type: String,
         required: true
@@ -104,5 +109,7 @@ const campaignSchema = new mongoose.Schema({
 // Index for better query performance
 campaignSchema.index({ user: 1, status: 1 });
 campaignSchema.index({ 'whatsappSession.sessionId': 1 });
+campaignSchema.index({ user: 1, title: 1 });
+campaignSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Campaign', campaignSchema);

@@ -25,6 +25,7 @@ const {
     startCampaign,
     getProgress,
     getMyCampaigns,
+    searchCampaigns,
     getCampaignDetails,
     generateReport,
     downloadReport,
@@ -52,6 +53,7 @@ router.get('/subscription', getSubscriptionInfo, require('../controllers/campaig
 // Campaign CRUD operations
 router.post('/', createCampaign);
 router.get('/', getMyCampaigns);
+router.get('/search', searchCampaigns);
 router.get('/:campaignId', getCampaignDetails);
 router.delete('/:campaignId', deleteCampaign);
 
