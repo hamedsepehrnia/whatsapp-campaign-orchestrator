@@ -6,11 +6,15 @@ const Otp = require("../models/Otp");
 // REGISTER
 exports.registerUser = async (req, res) => {
     try {
-        const { name, email, password, phone, verificationToken } = req.body;
+        const { name, username, email, password, phone, verificationToken } = req.body;
 
-        // بررسی اینکه کاربر قبلاً وجود نداشته باشه
-        const existingUser = await User.findOne({ email });
-        if (existingUser) return res.status(400).json({ message: "User already exists" });
+        // بررسی اینکه username قبلاً وجود نداشته باشه
+        const existingUsername = await User.findOne({ username });
+        if (existingUsername) return res.status(400).json({ message: "Username already exists" });
+
+        // بررسی اینکه email قبلاً وجود نداشته باشه
+        const existingEmail = await User.findOne({ email });
+        if (existingEmail) return res.status(400).json({ message: "Email already exists" });
 
         // Enforce OTP verification (simple mode)
         if (!verificationToken) {
@@ -35,6 +39,7 @@ exports.registerUser = async (req, res) => {
 
         const user = new User({
             name,
+            username,
             email,
             phone,
             password: hashedPassword,
@@ -44,7 +49,15 @@ exports.registerUser = async (req, res) => {
         await user.save();
         // Invalidate OTP record for reuse prevention
         try { await Otp.deleteOne({ _id: otpRecord._id }); } catch (e) {}
-        res.json({ message: "User registered successfully", user: { id: user._id, name: user.name, email: user.email } });
+        res.json({ 
+            message: "User registered successfully", 
+            user: { 
+                id: user._id, 
+                name: user.name, 
+                username: user.username,
+                email: user.email 
+            } 
+        });
 
     } catch (err) {
         console.error(err);
@@ -71,7 +84,7 @@ exports.loginUser = async (req, res) => {
         return res.status(200).json({
             message: "User login successfully",
             token,
-            user: { id: user._id, name: user.name, email: user.email, profile: user.profile }
+            user: { id: user._id, name: user.name, username: user.username, email: user.email, profile: user.profile }
         });
 
     } catch (err) {
@@ -91,12 +104,20 @@ exports.editProfile = async (req, res) => {
     try {
         if (!req.user) return res.status(401).json({ message: "User not authorized" });
 
-        const { email, password, currentPassword, age, avatar, address } = req.body;
+        const { username, email, password, currentPassword, age, avatar, address } = req.body;
 
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ message: "User not found" });
 
         user.profile = user.profile || {};
+
+        if (username) {
+            const existingUsername = await User.findOne({ username });
+            if (existingUsername && existingUsername._id.toString() !== user._id.toString()) {
+                return res.status(400).json({ message: "Username already in use" });
+            }
+            user.username = username;
+        }
 
         if (email) {
             const existingUser = await User.findOne({ email });
@@ -125,7 +146,7 @@ exports.editProfile = async (req, res) => {
         }
 
         await user.save();
-        res.json({ message: "Profile updated successfully", user: { id: user._id, name: user.name, email: user.email, profile: user.profile } });
+        res.json({ message: "Profile updated successfully", user: { id: user._id, name: user.name, username: user.username, email: user.email, profile: user.profile } });
 
     } catch (err) {
         console.error(err);

@@ -14,11 +14,13 @@ exports.listUsers = async (req, res) => {
         if (status) filter.status = status;
         if (q) filter.$or = [
             { name: new RegExp(q, 'i') },
+            { username: new RegExp(q, 'i') },
             { email: new RegExp(q, 'i') },
             { phone: new RegExp(q, 'i') },
         ];
 
         const users = await User.find(filter)
+            .select('name username email phone role status createdAt')
             .skip((+page - 1) * +limit)
             .limit(+limit)
             .sort({ createdAt: -1 });

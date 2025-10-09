@@ -229,6 +229,7 @@ Register a new user with OTP verification.
 ```json
 {
   "name": "علی احمدی",
+  "username": "ali_ahmadi",
   "email": "ali@example.com",
   "phone": "09120000000",
   "password": "Passw0rd123!",
@@ -243,6 +244,7 @@ Register a new user with OTP verification.
   "user": {
     "id": "507f1f77bcf86cd799439011",
     "name": "علی احمدی",
+    "username": "ali_ahmadi",
     "email": "ali@example.com"
   }
 }
@@ -269,6 +271,7 @@ Authenticate user and get JWT token.
   "user": {
     "id": "507f1f77bcf86cd799439011",
     "name": "علی احمدی",
+    "username": "ali_ahmadi",
     "email": "ali@example.com",
     "profile": {
       "age": null,
@@ -631,6 +634,7 @@ Get list of users (Admin only).
     {
       "_id": "507f1f77bcf86cd799439011",
       "name": "علی احمدی",
+      "username": "ali_ahmadi",
       "email": "ali@example.com",
       "phone": "09120000000",
       "role": "user",
@@ -854,13 +858,14 @@ The campaign creation follows an 8-step wizard:
 ### Create Campaign
 **POST** `/api/campaigns`
 
-Create a new WhatsApp campaign with automatic title generation.
+Create a new WhatsApp campaign with custom title.
 
 **Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
 
 **Request Body:**
 ```json
 {
+  "title": "کمپین فروش ویژه",
   "message": "سلام! پیشنهاد ویژه برای شما..."
 }
 ```
@@ -871,14 +876,13 @@ Create a new WhatsApp campaign with automatic title generation.
   "message": "Campaign created successfully",
   "campaign": {
     "id": "507f1f77bcf86cd799439011",
-    "title": "14040303",
-    "humanReadableTitle": "کمپین ۳ خرداد ۱۴۰۴",
+    "title": "کمپین فروش ویژه",
     "status": "draft"
   }
 }
 ```
 
-**Note:** The `title` field is automatically generated based on the Persian date of creation (format: YYYYMMDD). The `humanReadableTitle` provides a Persian-readable version of the date.
+**Note:** Both `title` and `message` fields are required. The title can be any custom name chosen by the user.
 
 ### Get Campaign Step Status
 **GET** `/api/campaigns/:campaignId/steps`
@@ -1518,8 +1522,7 @@ Get list of user's campaigns with filtering options.
   "campaigns": [
     {
       "_id": "507f1f77bcf86cd799439011",
-      "title": "14040303",
-      "humanReadableTitle": "کمپین ۳ خرداد ۱۴۰۴",
+      "title": "کمپین فروش ویژه",
       "status": "completed",
       "progress": {
         "total": 150,
@@ -1571,8 +1574,7 @@ Advanced search for campaigns with multiple filters and sorting options.
   "campaigns": [
     {
       "_id": "507f1f77bcf86cd799439011",
-      "title": "14040303",
-      "humanReadableTitle": "کمپین ۳ خرداد ۱۴۰۴",
+      "title": "کمپین فروش ویژه",
       "status": "completed",
       "progress": {
         "total": 150,

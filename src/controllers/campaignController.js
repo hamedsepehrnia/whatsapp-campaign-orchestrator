@@ -8,7 +8,6 @@ const qrcode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 const websocketService = require('../services/websocketService');
 const whatsappService = require('../services/whatsappService');
-const { generateCampaignTitle, generateHumanReadableTitle } = require('../utils/persianDate');
 
 // Configure multer for temporary file uploads
 const tempStorage = multer.diskStorage({
@@ -128,7 +127,7 @@ const upload = permanentUpload;
 // Create new campaign
 exports.createCampaign = async (req, res) => {
     try {
-        const { message } = req.body;
+        const { message, title } = req.body;
         
         if (!message) {
             return res.status(400).json({ 
@@ -136,14 +135,16 @@ exports.createCampaign = async (req, res) => {
             });
         }
 
-        // Generate automatic title based on Persian date
-        const autoTitle = generateCampaignTitle();
-        const humanReadableTitle = generateHumanReadableTitle();
+        if (!title) {
+            return res.status(400).json({ 
+                message: "Title is required" 
+            });
+        }
 
         const campaign = await Campaign.create({
             user: req.user._id,
             message,
-            title: autoTitle
+            title: title.trim()
         });
 
         res.status(201).json({
@@ -151,7 +152,6 @@ exports.createCampaign = async (req, res) => {
             campaign: {
                 id: campaign._id,
                 title: campaign.title,
-                humanReadableTitle: humanReadableTitle,
                 status: campaign.status
             }
         });
@@ -1442,19 +1442,8 @@ exports.getMyCampaigns = async (req, res) => {
 
         const total = await Campaign.countDocuments(filter);
 
-        // Add human readable titles to campaigns
-        const campaignsWithReadableTitles = campaigns.map(campaign => {
-            const campaignObj = campaign.toObject();
-            try {
-                campaignObj.humanReadableTitle = generateHumanReadableTitle(campaign.createdAt);
-            } catch (error) {
-                campaignObj.humanReadableTitle = campaign.title; // Fallback to original title
-            }
-            return campaignObj;
-        });
-
         res.json({
-            campaigns: campaignsWithReadableTitles,
+            campaigns,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -1533,19 +1522,8 @@ exports.searchCampaigns = async (req, res) => {
 
         const total = await Campaign.countDocuments(filter);
 
-        // Add human readable titles to campaigns
-        const campaignsWithReadableTitles = campaigns.map(campaign => {
-            const campaignObj = campaign.toObject();
-            try {
-                campaignObj.humanReadableTitle = generateHumanReadableTitle(campaign.createdAt);
-            } catch (error) {
-                campaignObj.humanReadableTitle = campaign.title; // Fallback to original title
-            }
-            return campaignObj;
-        });
-
         res.json({
-            campaigns: campaignsWithReadableTitles,
+            campaigns,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -1583,19 +1561,10 @@ exports.getCampaignDetails = async (req, res) => {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        // Generate human readable title
-        let humanReadableTitle;
-        try {
-            humanReadableTitle = generateHumanReadableTitle(campaign.createdAt);
-        } catch (error) {
-            humanReadableTitle = campaign.title; // Fallback to original title
-        }
-
         res.json({
             campaign: {
                 id: campaign._id,
                 title: campaign.title,
-                humanReadableTitle: humanReadableTitle,
                 message: campaign.message,
                 status: campaign.status,
                 progress: campaign.progress,
