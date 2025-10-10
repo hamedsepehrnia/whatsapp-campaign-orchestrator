@@ -1,14 +1,14 @@
 // config/passport.js
 const LocalStrategy = require("passport-local").Strategy;
 const bcrypt = require("bcrypt");
-const User = require("../models/User");
+const { User } = require("../models");
 
 module.exports = function (passport) {
     // Local Strategy
     passport.use(
         new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
             try {
-                const user = await User.findOne({ email });
+                const user = await User.findByEmail(email);
                 if (!user) {
                     return done(null, false, { message: "User not found" });
                 }

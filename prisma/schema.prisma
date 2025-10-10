@@ -1,0 +1,285 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int      @id @default(autoincrement())
+  name              String
+  username          String?  @unique
+  email             String   @unique
+  phone             String   @unique
+  password          String
+  role              Role     @default(USER)
+  status            UserStatus @default(ACTIVE)
+  age               Int?
+  address           String?
+  avatar            String?
+  subscriptionActive Boolean @default(false)
+  subscriptionExpiresAt DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  purchasedPackages Package[] @relation("UserPackages")
+  campaigns         Campaign[]
+  orders            Order[]
+  refreshTokens     RefreshToken[]
+
+  @@index([username])
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model Package {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String
+  price        Float
+  duration     Int
+  category     String
+  status       PackageStatus @default(ACTIVE)
+  messageLimit Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  users        User[]   @relation("UserPackages")
+  orders       Order[]
+
+  @@map("packages")
+}
+
+model Campaign {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  title             String?
+  message           String
+  interval          CampaignInterval @default(TEN_SECONDS)
+  isScheduled       Boolean  @default(false)
+  scheduledAt       DateTime?
+  timezone          String   @default("Asia/Tehran")
+  sendType          SendType @default(IMMEDIATE)
+  status            CampaignStatus @default(DRAFT)
+  isConnected       Boolean  @default(false)
+  qrCode            String?
+  sessionId         String?
+  lastActivity      DateTime?
+  totalRecipients   Int      @default(0)
+  sentCount         Int      @default(0)
+  failedCount       Int      @default(0)
+  deliveredCount    Int      @default(0)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  totalMessages     Int?
+  successfulMessages Int?
+  failedMessages    Int?
+  deliveryRate      Float?
+  averageDeliveryTime Float?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipients        Recipient[]
+  attachments       Attachment[]
+
+  @@index([userId, status])
+  @@index([sessionId])
+  @@index([userId, title])
+  @@index([userId, createdAt])
+  @@map("campaigns")
+}
+
+model Recipient {
+  id          Int      @id @default(autoincrement())
+  campaignId  Int
+  phone       String
+  name        String?
+  status      RecipientStatus @default(PENDING)
+  sentAt      DateTime?
+  error       String?
+
+  // Relations
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([phone])
+  @@map("recipients")
+}
+
+model Attachment {
+  id            Int      @id @default(autoincrement())
+  campaignId    Int
+  filename      String
+  originalName  String
+  mimetype      String
+  size          Int
+  path          String
+  createdAt     DateTime @default(now())
+
+  // Relations
+  campaign      Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("attachments")
+}
+
+model Order {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  packageId Int
+  status    OrderStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package   Package   @relation(fields: [packageId], references: [id])
+  transaction Transaction?
+
+  @@index([userId])
+  @@index([packageId])
+  @@index([status])
+  @@map("orders")
+}
+
+model Transaction {
+  id          Int             @id @default(autoincrement())
+  orderId     Int             @unique
+  amount      Float
+  status      TransactionStatus
+  gateway     PaymentGateway
+  authority   String?
+  refId       String?
+  gatewayData Json            @default("{}")
+  paymentDate DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+  @@index([gateway])
+  @@map("transactions")
+}
+
+model Otp {
+  id          Int      @id @default(autoincrement())
+  target      String
+  channel     OtpChannel
+  purpose     OtpPurpose
+  hashedCode  String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([target, channel, purpose])
+  @@index([expiresAt])
+  @@map("otps")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
+}
+
+enum PackageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CampaignInterval {
+  FIVE_SECONDS
+  TEN_SECONDS
+  TWENTY_SECONDS
+}
+
+enum SendType {
+  IMMEDIATE
+  SCHEDULED
+}
+
+enum CampaignStatus {
+  DRAFT
+  READY
+  RUNNING
+  COMPLETED
+  PAUSED
+  FAILED
+}
+
+enum RecipientStatus {
+  PENDING
+  SENT
+  FAILED
+  DELIVERED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILURE
+}
+
+enum PaymentGateway {
+  ZARINPAL
+  MOCK
+  OTHER
+}
+
+enum OtpChannel {
+  SMS
+  EMAIL
+}
+
+enum OtpPurpose {
+  REGISTER
+}

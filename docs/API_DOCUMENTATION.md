@@ -5,6 +5,67 @@
 http://localhost:3000
 ```
 
+## Database Migration Notice
+**⚠️ Important**: This API has been migrated from MongoDB to MySQL with Prisma ORM. 
+
+### Key Changes:
+- **Database**: MongoDB → MySQL
+- **ORM**: Mongoose → Prisma
+- **ID Format**: `_id` (ObjectId) → `id` (Integer)
+- **Response Structure**: Updated to reflect MySQL schema
+
+### Migration Benefits:
+- ✅ Better performance with relational queries
+- ✅ ACID compliance for transactions
+- ✅ Strong data consistency
+- ✅ Better scalability
+- ✅ Advanced querying capabilities
+
+## Environment Variables
+
+### Required Variables
+```env
+# Database Configuration (MySQL with Prisma)
+DATABASE_URL="mysql://username:password@localhost:3306/whatsapp_campaign_db"
+
+# JWT Configuration
+JWT_SECRET="your-super-secret-jwt-key-here"
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# Session Configuration
+SESSION_SECRET="your-session-secret-key"
+
+# WhatsApp Configuration
+WHATSAPP_SESSION_PATH="./sessions"
+
+# Email Configuration (for OTP)
+EMAIL_HOST="smtp.gmail.com"
+EMAIL_PORT=587
+EMAIL_USER="your-email@gmail.com"
+EMAIL_PASS="your-app-password"
+
+# SMS Configuration (for OTP)
+SMS_API_KEY="your-sms-api-key"
+
+# Payment Gateway Configuration
+ZARINPAL_MERCHANT_ID="your-zarinpal-merchant-id"
+```
+
+### Database Setup
+1. **Install MySQL** on your system
+2. **Create Database**:
+   ```sql
+   CREATE DATABASE whatsapp_campaign_db;
+   ```
+3. **Run Migrations**:
+   ```bash
+   npm run db:generate
+   npm run db:migrate
+   ```
+
 ## Authentication Methods
 
 ### 🔐 Session-Based Authentication (Primary - Recommended)
@@ -379,7 +440,7 @@ Get list of available packages (Public).
 {
   "packages": [
     {
-      "_id": "507f1f77bcf86cd799439011",
+      "id": 1,
       "title": "پکیج طلایی",
       "description": "دسترسی کامل به تمام امکانات",
       "price": 490000,
@@ -534,10 +595,10 @@ Get current user's orders.
 {
   "orders": [
     {
-      "_id": "507f1f77bcf86cd799439011",
+      "id": 1,
       "user": "507f1f77bcf86cd799439012",
       "package": {
-        "_id": "507f1f77bcf86cd799439013",
+        "id": 3,
         "title": "پکیج طلایی",
         "price": 490000
       },
@@ -632,7 +693,7 @@ Get list of users (Admin only).
 {
   "users": [
     {
-      "_id": "507f1f77bcf86cd799439011",
+      "id": 1,
       "name": "علی احمدی",
       "username": "ali_ahmadi",
       "email": "ali@example.com",
@@ -717,15 +778,15 @@ Get list of transactions (Admin only).
 {
   "transactions": [
     {
-      "_id": "507f1f77bcf86cd799439011",
+      "id": 1,
       "order": {
-        "_id": "507f1f77bcf86cd799439012",
+        "id": 2,
         "user": {
-          "_id": "507f1f77bcf86cd799439013",
+          "id": 3,
           "name": "علی احمدی"
         },
         "package": {
-          "_id": "507f1f77bcf86cd799439014",
+          "id": 4,
           "title": "پکیج طلایی"
         }
       },
@@ -1521,7 +1582,7 @@ Get list of user's campaigns with filtering options.
 {
   "campaigns": [
     {
-      "_id": "507f1f77bcf86cd799439011",
+      "id": 1,
       "title": "کمپین فروش ویژه",
       "status": "completed",
       "progress": {
@@ -1573,7 +1634,7 @@ Advanced search for campaigns with multiple filters and sorting options.
 {
   "campaigns": [
     {
-      "_id": "507f1f77bcf86cd799439011",
+      "id": 1,
       "title": "کمپین فروش ویژه",
       "status": "completed",
       "progress": {

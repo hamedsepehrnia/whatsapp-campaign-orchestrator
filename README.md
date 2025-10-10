@@ -2,6 +2,16 @@
 
 یک API کامل برای مدیریت کمپین‌های WhatsApp با قابلیت‌های پیشرفته.
 
+## 🆕 Migration Notice
+**این پروژه از MongoDB به MySQL با Prisma مهاجرت کرده است!**
+
+- ✅ **Database**: MongoDB → MySQL
+- ✅ **ORM**: Mongoose → Prisma  
+- ✅ **Performance**: بهبود قابل توجه در سرعت
+- ✅ **Consistency**: تضمین یکپارچگی داده‌ها
+
+[راهنمای کامل Migration](README_MIGRATION.md) | [Migration Guide](MIGRATION_GUIDE.md)
+
 ## 📁 ساختار پروژه
 
 ```
@@ -26,8 +36,8 @@ whatsapp-messager/
 ## 🚀 نصب و راه‌اندازی
 
 ### پیش‌نیازها
-- Node.js (v14 یا بالاتر)
-- MongoDB
+- Node.js (v16 یا بالاتر)
+- MySQL 8.0+
 - npm یا yarn
 
 ### نصب
@@ -43,11 +53,36 @@ npm install
 cp .env.example .env
 # فایل .env را ویرایش کنید
 
+# راه‌اندازی دیتابیس MySQL
+mysql -u root -p
+CREATE DATABASE whatsapp_campaign_db;
+
+# اجرای migration ها
+npm run db:generate
+npm run db:migrate
+
 # راه‌اندازی سرور
 npm start
 ```
 
 ## 🔧 اسکریپت‌های کمکی
+
+### دیتابیس
+```bash
+npm run db:generate    # تولید Prisma client
+npm run db:migrate     # اجرای migration ها
+npm run db:deploy      # deploy در production
+npm run db:studio      # باز کردن Prisma Studio
+npm run db:seed        # اجرای seed script
+```
+
+### تست‌ها
+```bash
+npm run test           # اجرای همه تست‌ها
+npm run test:all       # اجرای تست‌های کامل
+npm run test:campaign  # تست کمپین‌ها
+npm run test:whatsapp  # تست WhatsApp
+```
 
 ### بررسی محیط
 ```bash
@@ -59,18 +94,11 @@ node scripts/check-env.js
 node scripts/make-admin.js
 ```
 
-### اجرای تست‌ها
-```bash
-# اجرای همه تست‌ها
-npm run test
-
-# اجرای تست‌های خاص
-node tests/test-apis.js
-```
-
 ## 📚 مستندات
 
 - [مستندات API](docs/API_DOCUMENTATION.md)
+- [راهنمای Migration](README_MIGRATION.md)
+- [Migration Guide](MIGRATION_GUIDE.md)
 - [راهنمای WhatsApp Integration](docs/WHATSAPP_INTEGRATION.md)
 - [نتایج تست‌ها](docs/FINAL_TEST_RESULTS.md)
 

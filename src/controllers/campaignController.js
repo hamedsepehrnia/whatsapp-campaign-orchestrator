@@ -1,5 +1,4 @@
-const Campaign = require('../models/Campaign');
-const User = require('../models/User');
+const { Campaign, User } = require('../models');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');

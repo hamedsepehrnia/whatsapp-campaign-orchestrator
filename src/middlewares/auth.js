@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const { User } = require("../models");
 
 // Extract token from Authorization header or session cookie
 const extractToken = (req) => {
@@ -76,7 +76,7 @@ exports.authenticateSession = async (req, res, next) => {
                 // console.log('⚠️ Database error, using session data:', dbError.message);
                 // If database is not available, create a mock user from session
                 req.user = {
-                    _id: req.session.userId,
+                    id: req.session.userId,
                     email: req.session.userEmail || 'unknown@example.com',
                     role: req.session.userRole || 'user'
                 };
@@ -108,7 +108,7 @@ exports.authenticateSession = async (req, res, next) => {
             // console.log('✅ User authenticated via token:', user.email);
             // Store user in session for future requests
             if (req.session) {
-                req.session.userId = user._id;
+                req.session.userId = user.id;
                 req.session.userRole = user.role;
             }
             req.user = user;
@@ -119,7 +119,7 @@ exports.authenticateSession = async (req, res, next) => {
             try {
                 const payload = jwt.verify(token, jwtSecret);
                 req.user = {
-                    _id: payload.id,
+                    id: payload.id,
                     email: payload.email || 'unknown@example.com',
                     role: payload.role || 'user'
                 };

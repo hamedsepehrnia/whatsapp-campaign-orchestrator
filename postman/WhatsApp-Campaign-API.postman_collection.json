@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "WhatsApp Campaign API",
-    "description": "Complete API collection for WhatsApp Campaign Messaging system with real-time WebSocket support. Updated with Session-Based Authentication (December 2024).",
+    "description": "Complete API collection for WhatsApp Campaign Messaging system with real-time WebSocket support. Updated with Session-Based Authentication and MySQL/Prisma migration (December 2024).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

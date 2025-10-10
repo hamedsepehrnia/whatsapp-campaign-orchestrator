@@ -1,6 +1,4 @@
-const Order = require("../models/Order");
-const Transaction = require("../models/Transaction");
-const User = require("../models/User");
+const { Order, Transaction, User } = require("../models");
 const { zarinpalRequest, zarinpalVerify } = require('../services/paymentService');
 
 // Zarinpal payment initiation

@@ -1,5 +1,4 @@
-const Order = require("../models/Order");
-const Package = require("../models/Package");
+const { Order, Package } = require("../models");
 
 // Create order in pending status
 exports.createOrder = async (req, res) => {

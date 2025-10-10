@@ -1,7 +1,4 @@
-const User = require("../models/User");
-const Package = require("../models/Package");
-const Order = require("../models/Order");
-const Transaction = require("../models/Transaction");
+const { User, Package, Order, Transaction } = require("../models");
 const XLSX = require('xlsx');
 const path = require('path');
 const fs = require('fs');
