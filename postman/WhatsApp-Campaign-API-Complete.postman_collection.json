@@ -1,0 +1,809 @@
+{
+  "info": {
+    "name": "WhatsApp Campaign API - Complete",
+    "description": "Complete API collection for WhatsApp Campaign Messaging system with MySQL/Prisma migration. Updated December 2024.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🔐 Authentication & OTP",
+      "item": [
+        {
+          "name": "Request OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"SMS\",\n  \"target\": \"09120000000\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/request-otp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "request-otp"]
+            }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"SMS\",\n  \"target\": \"09120000000\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/verify-otp",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "verify-otp"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 User Management",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"علی احمدی\",\n  \"username\": \"ali_ahmadi\",\n  \"email\": \"ali@example.com\",\n  \"phone\": \"09120000000\",\n  \"password\": \"Passw0rd123!\",\n  \"verificationToken\": \"{{verification_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ali@example.com\",\n  \"password\": \"Passw0rd123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/user/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new_username\",\n  \"age\": 25,\n  \"address\": \"تهران، ایران\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/user/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 Package Management",
+      "item": [
+        {
+          "name": "Get All Packages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/packages",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages"]
+            }
+          }
+        },
+        {
+          "name": "Get Package by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/packages/{{package_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages", "{{package_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Package (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"پکیج طلایی\",\n  \"description\": \"دسترسی کامل به تمام امکانات\",\n  \"price\": 490000,\n  \"duration\": 30,\n  \"category\": \"premium\",\n  \"messageLimit\": 1000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/packages",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages"]
+            }
+          }
+        },
+        {
+          "name": "Update Package (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"پکیج طلایی بروزرسانی شده\",\n  \"price\": 590000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/packages/{{package_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages", "{{package_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Package (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/packages/{{package_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages", "{{package_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🛒 Order Management",
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"packageId\": {{package_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/orders",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Get My Orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/orders/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "orders", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💳 Payment Management",
+      "item": [
+        {
+          "name": "Start Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": {{order_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "start"]
+            }
+          }
+        },
+        {
+          "name": "Confirm Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authority\": \"{{authority}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "confirm"]
+            }
+          }
+        },
+        {
+          "name": "Payment Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/payments/callback?Authority={{authority}}&Status=OK",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "callback"],
+              "query": [
+                {
+                  "key": "Authority",
+                  "value": "{{authority}}"
+                },
+                {
+                  "key": "Status",
+                  "value": "OK"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Campaign Management",
+      "item": [
+        {
+          "name": "Create Campaign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"کمپین فروش ویژه\",\n  \"message\": \"سلام! پیشنهاد ویژه برای شما...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns"]
+            }
+          }
+        },
+        {
+          "name": "Get My Campaigns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns"]
+            }
+          }
+        },
+        {
+          "name": "Get Campaign Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Search Campaigns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/search?query=فروش&status=COMPLETED&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "فروش"
+                },
+                {
+                  "key": "status",
+                  "value": "COMPLETED"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Campaign",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Campaign Reports",
+      "item": [
+        {
+          "name": "Generate Report (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/report",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "report"]
+            }
+          }
+        },
+        {
+          "name": "Download Report (Excel)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/report/download",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "report", "download"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📤 File Uploads",
+      "item": [
+        {
+          "name": "Upload Recipients (Excel)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "recipients",
+                  "type": "file",
+                  "src": "recipients.xlsx"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/recipients",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "recipients"]
+            }
+          }
+        },
+        {
+          "name": "Upload Attachment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "attachment",
+                  "type": "file",
+                  "src": "image.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/attachment",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "attachment"]
+            }
+          }
+        },
+        {
+          "name": "Download Excel Template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/excel-template/download",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "excel-template", "download"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎛️ Campaign Control",
+      "item": [
+        {
+          "name": "Start Campaign",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "start"]
+            }
+          }
+        },
+        {
+          "name": "Pause Campaign",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/pause",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "pause"]
+            }
+          }
+        },
+        {
+          "name": "Resume Campaign",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/resume",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "resume"]
+            }
+          }
+        },
+        {
+          "name": "Get Campaign Progress",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/progress",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "progress"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔗 WhatsApp Integration",
+      "item": [
+        {
+          "name": "Generate QR Code",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/qr-code",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "qr-code"]
+            }
+          }
+        },
+        {
+          "name": "Check Connection",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/connection",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "connection"]
+            }
+          }
+        },
+        {
+          "name": "Cleanup Session",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/cleanup-session",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "cleanup-session"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👑 Admin Management",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/users?page=1&limit=20&role=USER&status=ACTIVE",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "role",
+                  "value": "USER"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}/role",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}", "role"]
+            }
+          }
+        },
+        {
+          "name": "Update User Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"BANNED\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/admin/users/{{user_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "users", "{{user_id}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/transactions?page=1&limit=20&status=SUCCESS",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "transactions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "SUCCESS"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/admin/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["api", "admin", "dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔄 Token Management",
+      "item": [
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/refresh/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "refresh", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout (Revoke Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/refresh/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "refresh", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Logout All Devices",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/refresh/logout-all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "refresh", "logout-all"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-set base URL if not set",
+          "if (!pm.environment.get('base_url')) {",
+          "    pm.environment.set('base_url', 'http://localhost:3000');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}

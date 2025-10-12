@@ -1593,44 +1593,49 @@ exports.generateReport = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
-
+        const campaign = await Campaign.findById(campaignId);
+        
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        // Check if user owns this campaign
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
         // Allow report generation for completed, running, and paused campaigns
-        if (!['completed', 'running', 'paused'].includes(campaign.status)) {
+        if (!['COMPLETED', 'RUNNING', 'PAUSED'].includes(campaign.status)) {
             return res.status(400).json({ 
                 message: "Campaign report is only available for running, paused, or completed campaigns" 
             });
         }
 
         // Calculate report data
-        const totalMessages = campaign.progress.total;
-        const successfulMessages = campaign.progress.sent;
-        const failedMessages = campaign.progress.failed;
+        const totalMessages = campaign.totalRecipients;
+        const successfulMessages = campaign.sentCount;
+        const failedMessages = campaign.failedCount;
+        const deliveredMessages = campaign.deliveredCount;
         const deliveryRate = totalMessages > 0 ? (successfulMessages / totalMessages) * 100 : 0;
 
         const report = {
-            campaignId: campaign._id,
+            campaignId: campaign.id,
+            title: campaign.title,
             status: campaign.status,
             totalMessages,
             successfulMessages,
             failedMessages,
+            deliveredMessages,
             remainingMessages: totalMessages - successfulMessages - failedMessages,
             deliveryRate: Math.round(deliveryRate * 100) / 100,
             startedAt: campaign.startedAt,
             completedAt: campaign.completedAt,
-            duration: campaign.completedAt ? 
-                (campaign.completedAt - campaign.startedAt) : 
-                (new Date() - campaign.startedAt),
-            isCompleted: campaign.status === 'completed',
+            duration: campaign.completedAt && campaign.startedAt ? 
+                (new Date(campaign.completedAt) - new Date(campaign.startedAt)) : 
+                (campaign.startedAt ? (new Date() - new Date(campaign.startedAt)) : 0),
+            isCompleted: campaign.status === 'COMPLETED',
             errors: campaign.recipients
-                .filter(r => r.status === 'failed')
+                .filter(r => r.status === 'FAILED')
                 .map(r => ({ phone: r.phone, error: r.error }))
         };
 
@@ -1649,17 +1654,19 @@ exports.downloadReport = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
-
+        const campaign = await Campaign.findById(campaignId);
+        
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        // Check if user owns this campaign
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
         // Allow report download for completed, running, and paused campaigns
-        if (!['completed', 'running', 'paused'].includes(campaign.status)) {
+        if (!['COMPLETED', 'RUNNING', 'PAUSED'].includes(campaign.status)) {
             return res.status(400).json({ 
                 message: "Campaign report is only available for running, paused, or completed campaigns" 
             });
@@ -1671,15 +1678,18 @@ exports.downloadReport = async (req, res) => {
         
         // Campaign summary sheet
         const summaryData = [{
-            'Campaign ID': campaign._id,
+            'Campaign ID': campaign.id,
+            'Title': campaign.title || 'N/A',
             'Status': campaign.status,
-            'Total Messages': campaign.progress.total,
-            'Sent': campaign.progress.sent,
-            'Failed': campaign.progress.failed,
-            'Remaining': campaign.progress.total - campaign.progress.sent - campaign.progress.failed,
-            'Delivery Rate': `${Math.round((campaign.progress.sent / campaign.progress.total) * 100)}%`,
-            'Started At': campaign.startedAt,
-            'Completed At': campaign.completedAt || 'N/A'
+            'Total Messages': campaign.totalRecipients,
+            'Sent': campaign.sentCount,
+            'Failed': campaign.failedCount,
+            'Delivered': campaign.deliveredCount,
+            'Remaining': campaign.totalRecipients - campaign.sentCount - campaign.failedCount,
+            'Delivery Rate': campaign.totalRecipients > 0 ? `${Math.round((campaign.sentCount / campaign.totalRecipients) * 100)}%` : '0%',
+            'Started At': campaign.startedAt ? new Date(campaign.startedAt).toLocaleString('fa-IR') : 'N/A',
+            'Completed At': campaign.completedAt ? new Date(campaign.completedAt).toLocaleString('fa-IR') : 'N/A',
+            'Created At': new Date(campaign.createdAt).toLocaleString('fa-IR')
         }];
         
         const summaryWs = xlsx.utils.json_to_sheet(summaryData);
@@ -1690,16 +1700,24 @@ exports.downloadReport = async (req, res) => {
             'Phone': recipient.phone,
             'Name': recipient.name || 'N/A',
             'Status': recipient.status,
-            'Sent At': recipient.sentAt || 'N/A',
+            'Sent At': recipient.sentAt ? new Date(recipient.sentAt).toLocaleString('fa-IR') : 'N/A',
             'Error': recipient.error || 'N/A'
         }));
         
         const recipientsWs = xlsx.utils.json_to_sheet(recipientsData);
         xlsx.utils.book_append_sheet(wb, recipientsWs, "Recipients Details");
         
+        // Campaign message sheet
+        const messageData = [{
+            'Campaign Message': campaign.message
+        }];
+        
+        const messageWs = xlsx.utils.json_to_sheet(messageData);
+        xlsx.utils.book_append_sheet(wb, messageWs, "Campaign Message");
+        
         // Set response headers for Excel download
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="campaign-report-${campaignId}.xlsx"`);
+        res.setHeader('Content-Disposition', `attachment; filename="campaign-report-${campaignId}-${new Date().toISOString().split('T')[0]}.xlsx"`);
         
         // Write Excel file to response
         const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });

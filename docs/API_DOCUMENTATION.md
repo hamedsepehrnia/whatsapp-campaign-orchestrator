@@ -1702,14 +1702,72 @@ Generate campaign report (JSON format).
 ### Download Campaign Report
 **GET** `/api/campaigns/:campaignId/report/download`
 
-Download campaign report as Excel file.
+Download campaign report as Excel file with comprehensive campaign data.
 
 **Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
 
 **Response:**
 - **Content-Type**: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
-- **Content-Disposition**: `attachment; filename="campaign-report-{campaignId}.xlsx"`
-- **Body**: Excel file with two sheets:
+- **Content-Disposition**: `attachment; filename="campaign-report-{campaignId}-{date}.xlsx"`
+- **Body**: Excel file with three sheets:
+
+#### Sheet 1: Campaign Summary
+| Field | Description |
+|-------|-------------|
+| Campaign ID | Unique campaign identifier |
+| Title | Campaign title |
+| Status | Current campaign status |
+| Total Messages | Total number of recipients |
+| Sent | Successfully sent messages |
+| Failed | Failed messages |
+| Delivered | Delivered messages |
+| Remaining | Remaining messages to send |
+| Delivery Rate | Success rate percentage |
+| Started At | Campaign start time (Persian format) |
+| Completed At | Campaign completion time (Persian format) |
+| Created At | Campaign creation time (Persian format) |
+
+#### Sheet 2: Recipients Details
+| Field | Description |
+|-------|-------------|
+| Phone | Recipient phone number |
+| Name | Recipient name |
+| Status | Message status (SENT, FAILED, PENDING, DELIVERED) |
+| Sent At | Message send time (Persian format) |
+| Error | Error message if failed |
+
+#### Sheet 3: Campaign Message
+| Field | Description |
+|-------|-------------|
+| Campaign Message | The actual message content sent to recipients |
+
+**Example Usage:**
+```javascript
+// Frontend download
+const downloadReport = async (campaignId) => {
+  const response = await fetch(`/api/campaigns/${campaignId}/report/download`, {
+    method: 'GET',
+    credentials: 'include'
+  });
+  
+  if (response.ok) {
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `campaign-report-${campaignId}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+};
+```
+
+**Notes:**
+- Reports are only available for campaigns with status: `RUNNING`, `PAUSED`, or `COMPLETED`
+- File includes Persian date formatting for better readability
+- Excel file is generated in real-time with current campaign data
   - **Campaign Summary**: Overview of campaign statistics
   - **Recipients Details**: Detailed list of all recipients with status
 
