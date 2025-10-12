@@ -383,6 +383,60 @@
           }
         },
         {
+          "name": "Get Campaign with Progress",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}?include=progress",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}"],
+              "query": [
+                {
+                  "key": "include",
+                  "value": "progress"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Campaign with Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}?include=report",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}"],
+              "query": [
+                {
+                  "key": "include",
+                  "value": "report"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Campaign with Everything",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}?include=progress,report,recipients,attachments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}"],
+              "query": [
+                {
+                  "key": "include",
+                  "value": "progress,report,recipients,attachments"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "Search Campaigns",
           "request": {
             "method": "GET",
@@ -429,18 +483,6 @@
     {
       "name": "📊 Campaign Reports",
       "item": [
-        {
-          "name": "Generate Report (JSON)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/report",
-              "host": ["{{base_url}}"],
-              "path": ["api", "campaigns", "{{campaign_id}}", "report"]
-            }
-          }
-        },
         {
           "name": "Download Report (Excel)",
           "request": {
@@ -555,18 +597,6 @@
             }
           }
         },
-        {
-          "name": "Get Campaign Progress",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/progress",
-              "host": ["{{base_url}}"],
-              "path": ["api", "campaigns", "{{campaign_id}}", "progress"]
-            }
-          }
-        }
       ]
     },
     {

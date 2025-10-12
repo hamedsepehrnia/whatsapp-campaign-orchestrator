@@ -44,13 +44,15 @@
 | GET | `/api/campaigns` | Get user's campaigns | ✅ |
 | GET | `/api/campaigns/search` | Search campaigns | ✅ |
 | GET | `/api/campaigns/:id` | Get campaign details | ✅ |
+| GET | `/api/campaigns/:id?include=progress` | Get campaign with progress | ✅ |
+| GET | `/api/campaigns/:id?include=report` | Get campaign with report | ✅ |
+| GET | `/api/campaigns/:id?include=progress,report` | Get campaign with multiple includes | ✅ |
 | DELETE | `/api/campaigns/:id` | Delete campaign | ✅ |
 | PUT | `/api/campaigns/:id/interval` | Set campaign interval | ✅ |
 
 ## 📊 Campaign Reports
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| GET | `/api/campaigns/:id/report` | Generate campaign report (JSON) | ✅ |
 | GET | `/api/campaigns/:id/report/download` | Download campaign report (Excel) | ✅ |
 
 ## 📤 File Uploads
@@ -68,7 +70,6 @@
 | POST | `/api/campaigns/:id/start` | Start campaign | ✅ |
 | POST | `/api/campaigns/:id/pause` | Pause campaign | ✅ |
 | POST | `/api/campaigns/:id/resume` | Resume campaign | ✅ |
-| GET | `/api/campaigns/:id/progress` | Get campaign progress | ✅ |
 
 ## 🔗 WhatsApp Integration
 | Method | Endpoint | Description | Auth Required |
@@ -167,7 +168,8 @@ ws.onmessage = (event) => {
 
 ---
 
-**Total Endpoints**: 50+  
+**Total Endpoints**: 45+ (Optimized)  
 **Authentication Methods**: Session-based + JWT  
 **File Formats**: JSON, Excel, WebSocket  
-**Database**: MySQL with Prisma ORM
+**Database**: MySQL with Prisma ORM  
+**Optimization**: Reduced redundant endpoints with query parameters

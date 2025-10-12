@@ -1546,28 +1546,106 @@ exports.searchCampaigns = async (req, res) => {
     }
 };
 
-// Get campaign details
+// Get campaign details with optional includes
 exports.getCampaignDetails = async (req, res) => {
     try {
         const { campaignId } = req.params;
+        const { include } = req.query;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
-
+        const campaign = await Campaign.findById(campaignId);
+        
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        // Check if user owns this campaign
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        // Parse include parameter
+        const includes = include ? include.split(',').map(item => item.trim()) : [];
+        
+        // Base campaign data
+        const campaignData = {
+            id: campaign.id,
+            title: campaign.title,
+            message: campaign.message,
+            status: campaign.status,
+            interval: campaign.interval,
+            isScheduled: campaign.isScheduled,
+            scheduledAt: campaign.scheduledAt,
+            timezone: campaign.timezone,
+            sendType: campaign.sendType,
+            isConnected: campaign.isConnected,
+            qrCode: campaign.qrCode,
+            sessionId: campaign.sessionId,
+            lastActivity: campaign.lastActivity,
+            startedAt: campaign.startedAt,
+            completedAt: campaign.completedAt,
+            createdAt: campaign.createdAt,
+            updatedAt: campaign.updatedAt
+        };
+
+        // Include progress if requested
+        if (includes.includes('progress')) {
+            campaignData.progress = {
+                total: campaign.totalRecipients,
+                sent: campaign.sentCount,
+                failed: campaign.failedCount,
+                delivered: campaign.deliveredCount,
+                remaining: campaign.totalRecipients - campaign.sentCount - campaign.failedCount,
+                deliveryRate: campaign.totalRecipients > 0 ? 
+                    Math.round((campaign.sentCount / campaign.totalRecipients) * 100) : 0
+            };
+        }
+
+        // Include recipients if requested
+        if (includes.includes('recipients')) {
+            campaignData.recipients = campaign.recipients;
+        }
+
+        // Include attachments if requested
+        if (includes.includes('attachments')) {
+            campaignData.attachments = campaign.attachments;
+        }
+
+        // Include report if requested
+        if (includes.includes('report')) {
+            const totalMessages = campaign.totalRecipients;
+            const successfulMessages = campaign.sentCount;
+            const failedMessages = campaign.failedCount;
+            const deliveredMessages = campaign.deliveredCount;
+            const deliveryRate = totalMessages > 0 ? (successfulMessages / totalMessages) * 100 : 0;
+
+            campaignData.report = {
+                totalMessages,
+                successfulMessages,
+                failedMessages,
+                deliveredMessages,
+                remainingMessages: totalMessages - successfulMessages - failedMessages,
+                deliveryRate: Math.round(deliveryRate * 100) / 100,
+                startedAt: campaign.startedAt,
+                completedAt: campaign.completedAt,
+                duration: campaign.completedAt && campaign.startedAt ? 
+                    (new Date(campaign.completedAt) - new Date(campaign.startedAt)) : 
+                    (campaign.startedAt ? (new Date() - new Date(campaign.startedAt)) : 0),
+                isCompleted: campaign.status === 'COMPLETED',
+                errors: campaign.recipients
+                    .filter(r => r.status === 'FAILED')
+                    .map(r => ({ phone: r.phone, error: r.error }))
+            };
+        }
+
         res.json({
-            campaign: {
-                id: campaign._id,
-                title: campaign.title,
-                message: campaign.message,
-                status: campaign.status,
-                progress: campaign.progress,
-                whatsappSession: {
+            campaign: campaignData
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
                     isConnected: campaign.whatsappSession.isConnected
                 },
                 attachment: campaign.attachment ? {

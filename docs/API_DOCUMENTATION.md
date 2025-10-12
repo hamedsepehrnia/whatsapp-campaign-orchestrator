@@ -1538,24 +1538,30 @@ Start sending messages.
 }
 ```
 
-### Get Campaign Progress
-**GET** `/api/campaigns/:campaignId/progress`
+### Get Campaign Details (with Progress)
+**GET** `/api/campaigns/:campaignId?include=progress`
 
-Get real-time campaign progress.
+Get campaign details with real-time progress.
 
 **Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Query Parameters:**
+- `include=progress` - Include progress statistics
 
 **Response:**
 ```json
 {
   "campaign": {
-    "id": "507f1f77bcf86cd799439011",
-    "status": "running",
+    "id": 1,
+    "title": "کمپین فروش ویژه",
+    "status": "RUNNING",
     "progress": {
       "total": 150,
       "sent": 45,
       "failed": 2,
-      "delivered": 43
+      "delivered": 43,
+      "remaining": 100,
+      "deliveryRate": 30
     },
     "startedAt": "2024-01-01T12:00:00.000Z"
   }
@@ -1666,35 +1672,41 @@ Advanced search for campaigns with multiple filters and sorting options.
 }
 ```
 
-### Generate Campaign Report
-**GET** `/api/campaigns/:campaignId/report`
+### Get Campaign Details (with Report)
+**GET** `/api/campaigns/:campaignId?include=report`
 
-Generate campaign report (JSON format).
+Get campaign details with comprehensive report data.
 
 **Headers:** `Authorization: Bearer YOUR_JWT_TOKEN`
+
+**Query Parameters:**
+- `include=report` - Include detailed report data
 
 **Response:**
 ```json
 {
-  "message": "Report generated successfully",
-  "report": {
-    "campaignId": "507f1f77bcf86cd799439011",
-    "status": "running",
-    "totalMessages": 150,
-    "successfulMessages": 45,
-    "failedMessages": 2,
-    "remainingMessages": 103,
-    "deliveryRate": 30.0,
-    "startedAt": "2024-01-01T12:00:00.000Z",
-    "completedAt": null,
-    "duration": 1800000,
-    "isCompleted": false,
-    "errors": [
-      {
-        "phone": "09120000001",
-        "error": "Invalid phone number"
-      }
-    ]
+  "campaign": {
+    "id": 1,
+    "title": "کمپین فروش ویژه",
+    "status": "RUNNING",
+    "report": {
+      "totalMessages": 150,
+      "successfulMessages": 45,
+      "failedMessages": 2,
+      "deliveredMessages": 43,
+      "remainingMessages": 103,
+      "deliveryRate": 30.0,
+      "startedAt": "2024-01-01T12:00:00.000Z",
+      "completedAt": null,
+      "duration": 1800000,
+      "isCompleted": false,
+      "errors": [
+        {
+          "phone": "09120000001",
+          "error": "Invalid phone number"
+        }
+      ]
+    }
   }
 }
 ```
