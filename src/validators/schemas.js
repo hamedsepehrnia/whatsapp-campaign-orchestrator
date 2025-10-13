@@ -3,10 +3,21 @@ const { z } = require('zod');
 exports.userRegisterSchema = {
     body: z.object({
         name: z.string().min(2),
+        username: z.string().min(3),
         email: z.string().email(),
         phone: z.string().min(6),
         password: z.string().min(6),
         verificationToken: z.string(),
+    })
+};
+
+exports.userRegisterSimpleSchema = {
+    body: z.object({
+        name: z.string().min(2),
+        username: z.string().min(3),
+        email: z.string().email(),
+        phone: z.string().min(6).optional(),
+        password: z.string().min(6),
     })
 };
 

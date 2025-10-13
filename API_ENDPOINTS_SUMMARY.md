@@ -9,7 +9,8 @@
 ## 👤 User Management
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| POST | `/api/user/register` | Register new user | ❌ |
+| POST | `/api/user/register` | Register new user (with OTP) | ❌ |
+| POST | `/api/user/register-simple` | Register new user (simple - no OTP) | ❌ |
 | POST | `/api/user/login` | Login user (session-based) | ❌ |
 | GET | `/api/user/profile` | Get user profile | ✅ |
 | POST | `/api/user/profile` | Update user profile | ✅ |

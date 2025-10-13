@@ -56,7 +56,7 @@
       "name": "👤 User Management",
       "item": [
         {
-          "name": "Register User",
+          "name": "Register User (with OTP)",
           "request": {
             "method": "POST",
             "header": [
@@ -73,6 +73,27 @@
               "raw": "{{base_url}}/api/user/register",
               "host": ["{{base_url}}"],
               "path": ["api", "user", "register"]
+            }
+          }
+        },
+        {
+          "name": "Register User (Simple - No OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"علی احمدی\",\n  \"username\": \"ali_ahmadi\",\n  \"email\": \"ali@example.com\",\n  \"phone\": \"09120000000\",\n  \"password\": \"Passw0rd123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/register-simple",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "register-simple"]
             }
           }
         },

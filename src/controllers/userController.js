@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User, Otp } = require("../models");
 
-// REGISTER
+// REGISTER WITH OTP
 exports.registerUser = async (req, res) => {
     try {
         const { name, username, email, password, phone, verificationToken } = req.body;
@@ -48,6 +48,38 @@ exports.registerUser = async (req, res) => {
             avatar: null,
         });
 
+// REGISTER WITHOUT OTP (Simple Registration)
+exports.registerUserSimple = async (req, res) => {
+    try {
+        const { name, username, email, password, phone } = req.body;
+
+        // بررسی اینکه username قبلاً وجود نداشته باشه
+        const existingUsername = await User.findByUsername(username);
+        if (existingUsername) return res.status(400).json({ message: "Username already exists" });
+
+        // بررسی اینکه email قبلاً وجود نداشته باشه
+        const existingEmail = await User.findByEmail(email);
+        if (existingEmail) return res.status(400).json({ message: "Email already exists" });
+
+        // بررسی اینکه phone قبلاً وجود نداشته باشه
+        if (phone) {
+            const existingPhone = await User.findByPhone(phone);
+            if (existingPhone) return res.status(400).json({ message: "Phone number already exists" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = await User.create({
+            name,
+            username,
+            email,
+            phone: phone || null,
+            password: hashedPassword,
+            age: null,
+            address: null,
+            avatar: null,
+        });
+
         // Invalidate OTP record for reuse prevention
         try { await Otp.delete(otpRecord.id); } catch (e) {}
         res.json({ 
@@ -57,6 +89,23 @@ exports.registerUser = async (req, res) => {
                 name: user.name, 
                 username: user.username,
                 email: user.email 
+            } 
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+        res.json({ 
+            message: "User registered successfully (without OTP)", 
+            user: { 
+                id: user.id, 
+                name: user.name, 
+                username: user.username,
+                email: user.email,
+                phone: user.phone
             } 
         });
 

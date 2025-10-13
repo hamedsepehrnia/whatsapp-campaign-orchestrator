@@ -281,7 +281,7 @@ Logout from all devices (requires authentication).
 
 ## 👤 User Endpoints
 
-### Register User
+### Register User (with OTP)
 **POST** `/api/user/register`
 
 Register a new user with OTP verification.
@@ -303,13 +303,45 @@ Register a new user with OTP verification.
 {
   "message": "User registered successfully",
   "user": {
-    "id": "507f1f77bcf86cd799439011",
+    "id": 1,
     "name": "علی احمدی",
     "username": "ali_ahmadi",
     "email": "ali@example.com"
   }
 }
 ```
+
+### Register User (Simple - No OTP)
+**POST** `/api/user/register-simple`
+
+Register a new user without OTP verification (simplified registration).
+
+**Request Body:**
+```json
+{
+  "name": "علی احمدی",
+  "username": "ali_ahmadi",
+  "email": "ali@example.com",
+  "phone": "09120000000",
+  "password": "Passw0rd123!"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "User registered successfully (without OTP)",
+  "user": {
+    "id": 1,
+    "name": "علی احمدی",
+    "username": "ali_ahmadi",
+    "email": "ali@example.com",
+    "phone": "09120000000"
+  }
+}
+```
+
+**Note:** Phone number is optional in simple registration.
 
 ### Login User
 **POST** `/api/user/login`

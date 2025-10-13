@@ -1,8 +1,8 @@
 const express = require('express');
 const passport = require('passport');
-const { registerUser, loginUser, getProfile, editProfile, logoutUser } = require('../controllers/userController');
+const { registerUser, registerUserSimple, loginUser, getProfile, editProfile, logoutUser } = require('../controllers/userController');
 const { validate } = require('../middlewares/validate');
-const { userRegisterSchema, userLoginSchema } = require('../validators/schemas');
+const { userRegisterSchema, userRegisterSimpleSchema, userLoginSchema } = require('../validators/schemas');
 
 const router = express.Router();
 
@@ -12,8 +12,11 @@ function isAuthenticated(req, res, next) {
     res.status(401).json({ message: "Not authenticated" });
 }
 
-// ثبت‌نام
+// ثبت‌نام با OTP
 router.post("/register", validate(userRegisterSchema), registerUser);
+
+// ثبت‌نام ساده بدون OTP
+router.post("/register-simple", validate(userRegisterSimpleSchema), registerUserSimple);
 
 // لاگین با Passport + JWT
 router.post("/login", validate(userLoginSchema), (req, res, next) => {
