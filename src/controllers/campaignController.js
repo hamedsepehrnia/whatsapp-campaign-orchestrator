@@ -141,7 +141,7 @@ exports.createCampaign = async (req, res) => {
         }
 
         const campaign = await Campaign.create({
-            user: req.user._id,
+            userId: req.user.id,
             message,
             title: title.trim()
         });
@@ -149,7 +149,7 @@ exports.createCampaign = async (req, res) => {
         res.status(201).json({
             message: "Campaign created successfully",
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 title: campaign.title,
                 status: campaign.status
             }
@@ -172,13 +172,14 @@ exports.uploadRecipients = [
                 return res.status(400).json({ message: "Excel file is required" });
             }
 
-            const campaign = await Campaign.findOne({ 
-                _id: campaignId, 
-                user: req.user._id 
-            });
-
+            const campaign = await Campaign.findById(campaignId);
+            
             if (!campaign) {
                 return res.status(404).json({ message: "Campaign not found" });
+            }
+
+            if (campaign.userId !== req.user.id) {
+                return res.status(403).json({ message: "Access denied" });
             }
 
             // Read Excel file
@@ -249,7 +250,7 @@ exports.uploadRecipients = [
             }
 
             // Check subscription limits
-            const user = await User.findById(req.user._id).populate('purchasedPackages');
+            const user = await User.findById(req.user.id).populate('purchasedPackages');
             const totalRecipients = recipients.length;
             
             // Get user's message limit from their package
@@ -268,13 +269,14 @@ exports.uploadRecipients = [
             }
 
             // Update campaign with recipients
-            campaign.recipients = recipients;
-            campaign.progress.total = recipients.length;
-            campaign.status = 'ready';
-            await campaign.save();
+            await Campaign.update(campaignId, {
+                recipients: recipients,
+                totalRecipients: recipients.length,
+                status: 'READY'
+            });
 
             // Send WebSocket update
-            await websocketService.sendCampaignUpdate(campaign._id, req.user._id);
+            await websocketService.sendCampaignUpdate(campaignId, req.user.id);
 
             // Clean up uploaded file safely
             if (req.file && req.file.path && fs.existsSync(req.file.path)) {
@@ -290,9 +292,9 @@ exports.uploadRecipients = [
                 recipientsCount: recipients.length,
                 warnings: errors.length > 0 ? errors : undefined,
                 campaign: {
-                    id: campaign._id,
-                    status: campaign.status,
-                    totalRecipients: campaign.progress.total
+                    id: campaignId,
+                    status: 'READY',
+                    totalRecipients: recipients.length
                 }
             });
 
@@ -370,17 +372,18 @@ exports.uploadAttachment = [
                 return res.status(400).json({ message: "Attachment file is required" });
             }
 
-            const campaign = await Campaign.findOne({ 
-                _id: campaignId, 
-                user: req.user._id 
-            });
-
+            const campaign = await Campaign.findById(campaignId);
+            
             if (!campaign) {
                 return res.status(404).json({ message: "Campaign not found" });
             }
 
+            if (campaign.userId !== req.user.id) {
+                return res.status(403).json({ message: "Access denied" });
+            }
+
             // Check if campaign is not running
-            if (campaign.status === 'running') {
+            if (campaign.status === 'RUNNING') {
                 return res.status(400).json({ 
                     message: "Cannot upload attachment while campaign is running" 
                 });
@@ -398,23 +401,27 @@ exports.uploadAttachment = [
             }
 
             // Update campaign with new attachment info
-            campaign.attachment = {
-                filename: req.file.filename,
-                originalName: req.file.originalname,
-                mimetype: req.file.mimetype,
-                size: req.file.size,
-                path: req.file.path
-            };
-
-            await campaign.save();
+            await Campaign.update(campaignId, {
+                attachment: {
+                    filename: req.file.filename,
+                    originalName: req.file.originalname,
+                    mimetype: req.file.mimetype,
+                    size: req.file.size,
+                    path: req.file.path
+                }
+            });
 
             res.json({
                 message: "Attachment uploaded successfully",
                 attachment: {
-                    filename: campaign.attachment.filename,
-                    originalName: campaign.attachment.originalName,
-                    size: campaign.attachment.size,
-                    mimetype: campaign.attachment.mimetype
+                    filename: req.file.filename,
+                    originalName: req.file.originalname,
+                    size: req.file.size,
+                    mimetype: req.file.mimetype
+                },
+                campaign: {
+                    id: campaignId,
+                    status: 'READY'
                 }
             });
 
@@ -437,17 +444,18 @@ exports.deleteAttachment = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
-
+        const campaign = await Campaign.findById(campaignId);
+        
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
         // Check if campaign is not running
-        if (campaign.status === 'running') {
+        if (campaign.status === 'RUNNING') {
             return res.status(400).json({ 
                 message: "Cannot delete attachment while campaign is running" 
             });
@@ -465,11 +473,17 @@ exports.deleteAttachment = async (req, res) => {
         }
 
         // Remove attachment from campaign
-        campaign.attachment = undefined;
-        await campaign.save();
+        await Campaign.update(campaignId, {
+            attachment: null
+        });
 
         res.json({
-            message: "Attachment deleted successfully"
+            message: "Attachment deleted successfully",
+            campaign: {
+                id: campaignId,
+                attachment: null,
+                status: campaign.status
+            }
         });
 
     } catch (err) {
@@ -483,13 +497,14 @@ exports.getAttachmentDetails = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
-
+        const campaign = await Campaign.findById(campaignId);
+        
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
         }
 
         if (!campaign.attachment) {
@@ -526,17 +541,18 @@ exports.confirmAttachment = async (req, res) => {
             return res.status(400).json({ message: "Temporary filename is required" });
         }
 
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
-
+        const campaign = await Campaign.findById(campaignId);
+        
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
         // Check if campaign is not running
-        if (campaign.status === 'running') {
+        if (campaign.status === 'RUNNING') {
             return res.status(400).json({ 
                 message: "Cannot update attachment while campaign is running" 
             });
@@ -572,23 +588,27 @@ exports.confirmAttachment = async (req, res) => {
         }
 
         // Update campaign with new attachment info
-        campaign.attachment = {
-            filename: permanentFilename,
-            originalName: req.body.originalName || tempFilename,
-            mimetype: req.body.mimetype || 'application/octet-stream',
-            size: stats.size,
-            path: permanentPath
-        };
-
-        await campaign.save();
+        await Campaign.update(campaignId, {
+            attachment: {
+                filename: permanentFilename,
+                originalName: req.body.originalName || tempFilename,
+                mimetype: req.body.mimetype || 'application/octet-stream',
+                size: stats.size,
+                path: permanentPath
+            }
+        });
 
         res.json({
             message: "Attachment confirmed and saved successfully",
             attachment: {
-                filename: campaign.attachment.filename,
-                originalName: campaign.attachment.originalName,
-                size: campaign.attachment.size,
-                mimetype: campaign.attachment.mimetype
+                filename: permanentFilename,
+                originalName: req.body.originalName || tempFilename,
+                size: stats.size,
+                mimetype: req.body.mimetype || 'application/octet-stream'
+            },
+            campaign: {
+                id: campaignId,
+                status: 'READY'
             }
         });
 
@@ -659,17 +679,18 @@ exports.getCampaignPreview = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
-
+        const campaign = await Campaign.findById(campaignId);
+        
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
         // Check if campaign is ready for preview
-        if (campaign.status !== 'ready') {
+        if (campaign.status !== 'READY') {
             return res.status(400).json({ 
                 message: "Campaign is not ready for preview. Please complete all previous steps." 
             });
@@ -690,7 +711,7 @@ exports.getCampaignPreview = async (req, res) => {
 
         // Campaign summary
         const campaignSummary = {
-            id: campaign._id,
+            id: campaign.id,
             message: campaign.message,
             totalRecipients: campaign.recipients.length,
             interval: campaign.interval,
@@ -726,17 +747,22 @@ exports.confirmAndStartCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
         // Check if campaign is ready
-        if (campaign.status !== 'ready') {
+        if (campaign.status !== 'READY') {
             return res.status(400).json({ 
                 message: "Campaign is not ready to start" 
             });
@@ -750,22 +776,23 @@ exports.confirmAndStartCampaign = async (req, res) => {
         }
 
         // Start the campaign
-        campaign.status = 'running';
-        campaign.startedAt = new Date();
-        await campaign.save();
+        await Campaign.update(campaignId, {
+            status: 'RUNNING',
+            startedAt: new Date()
+        });
 
         // Send WebSocket update
-        await websocketService.sendCampaignUpdate(campaign._id, req.user._id);
+        await websocketService.sendCampaignUpdate(campaign.id, req.user.id);
 
         // Start sending messages in background
-        whatsappService.startCampaign(campaign._id).catch(error => {
+        whatsappService.startCampaign(campaign.id).catch(error => {
             console.error('❌ Error starting campaign:', error);
         });
 
         res.json({
             message: "Campaign confirmed and started successfully",
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status,
                 totalRecipients: campaign.recipients.length,
                 startedAt: campaign.startedAt
@@ -783,10 +810,15 @@ exports.getCampaignStepStatus = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -838,7 +870,7 @@ exports.getCampaignStepStatus = async (req, res) => {
         res.json({
             message: "Campaign step status retrieved successfully",
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status,
                 currentStep,
                 totalSteps: 6
@@ -865,10 +897,15 @@ exports.navigateToStep = async (req, res) => {
         const { campaignId } = req.params;
         const { step } = req.body;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -906,7 +943,7 @@ exports.navigateToStep = async (req, res) => {
                 optional: stepData.steps[targetStep].optional
             },
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status,
                 message: campaign.message,
                 recipients: campaign.recipients?.length || 0,
@@ -927,10 +964,15 @@ exports.goBackStep = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -961,7 +1003,7 @@ exports.goBackStep = async (req, res) => {
                 completed: stepData.steps[`step${previousStep}`].completed
             },
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status
             }
         });
@@ -978,10 +1020,15 @@ exports.resetToStep = async (req, res) => {
         const { campaignId } = req.params;
         const { step } = req.body;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -998,51 +1045,61 @@ exports.resetToStep = async (req, res) => {
         switch (step) {
             case 1:
                 // Reset everything
-                campaign.message = undefined;
-                campaign.recipients = [];
-                campaign.attachment = undefined;
-                campaign.interval = '10s';
-                campaign.whatsappSession = { isConnected: false };
-                campaign.status = 'draft';
+                await Campaign.update(campaignId, {
+                    message: null,
+                    recipients: [],
+                    attachment: null,
+                    interval: '10s',
+                    whatsappSessionConnected: false,
+                    status: 'DRAFT'
+                });
                 break;
             case 2:
                 // Reset from step 2 onwards
-                campaign.recipients = [];
-                campaign.attachment = undefined;
-                campaign.interval = '10s';
-                campaign.whatsappSession = { isConnected: false };
-                campaign.status = 'draft';
+                await Campaign.update(campaignId, {
+                    recipients: [],
+                    attachment: null,
+                    interval: '10s',
+                    whatsappSessionConnected: false,
+                    status: 'DRAFT'
+                });
                 break;
             case 3:
                 // Reset from step 3 onwards
-                campaign.attachment = undefined;
-                campaign.interval = '10s';
-                campaign.whatsappSession = { isConnected: false };
-                campaign.status = 'ready';
+                await Campaign.update(campaignId, {
+                    attachment: null,
+                    interval: '10s',
+                    whatsappSessionConnected: false,
+                    status: 'READY'
+                });
                 break;
             case 4:
                 // Reset from step 4 onwards
-                campaign.interval = '10s';
-                campaign.whatsappSession = { isConnected: false };
-                campaign.status = 'ready';
+                await Campaign.update(campaignId, {
+                    interval: '10s',
+                    whatsappSessionConnected: false,
+                    status: 'READY'
+                });
                 break;
             case 5:
                 // Reset from step 5 onwards
-                campaign.whatsappSession = { isConnected: false };
-                campaign.status = 'ready';
+                await Campaign.update(campaignId, {
+                    whatsappSessionConnected: false,
+                    status: 'READY'
+                });
                 break;
             case 6:
                 // Just reset status
-                campaign.status = 'ready';
+                await Campaign.update(campaignId, {
+                    status: 'READY'
+                });
                 break;
         }
-
-        await campaign.save();
 
         res.json({
             message: `Campaign reset to step ${step}`,
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status,
                 message: campaign.message,
                 recipients: campaign.recipients?.length || 0,
@@ -1061,21 +1118,23 @@ exports.resetToStep = async (req, res) => {
 // Get scheduled campaigns
 exports.getScheduledCampaigns = async (req, res) => {
     try {
-        const campaigns = await Campaign.find({
-            user: req.user._id,
-            'schedule.isScheduled': true,
-            'schedule.scheduledAt': { $gt: new Date() },
-            status: { $in: ['ready', 'draft'] }
-        }).sort({ 'schedule.scheduledAt': 1 });
+        const campaigns = await Campaign.findAll({
+            userId: req.user.id,
+            isScheduled: true,
+            scheduledAt: { gt: new Date() },
+            status: { in: ['READY', 'DRAFT'] }
+        }, {
+            orderBy: { scheduledAt: 'asc' }
+        });
 
         res.json({
             message: "Scheduled campaigns retrieved successfully",
             campaigns: campaigns.map(campaign => ({
-                id: campaign._id,
+                id: campaign.id,
                 message: campaign.message,
                 recipients: campaign.recipients.length,
-                scheduledAt: campaign.schedule.scheduledAt,
-                timezone: campaign.schedule.timezone,
+                scheduledAt: campaign.scheduledAt,
+                timezone: campaign.timezone,
                 interval: campaign.interval,
                 status: campaign.status
             }))
@@ -1092,36 +1151,44 @@ exports.cancelScheduledCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        if (!campaign.schedule.isScheduled) {
+        if (!campaign.isScheduled) {
             return res.status(400).json({ 
                 message: "Campaign is not scheduled" 
             });
         }
 
         // Reset schedule
-        campaign.schedule = {
+        await Campaign.update(campaignId, {
             isScheduled: false,
             scheduledAt: null,
             timezone: 'Asia/Tehran',
             sendType: 'immediate'
-        };
-
-        await campaign.save();
+        });
 
         res.json({
             message: "Scheduled campaign cancelled successfully",
             campaign: {
-                id: campaign._id,
-                schedule: campaign.schedule
+                id: campaign.id,
+                schedule: {
+                    isScheduled: campaign.isScheduled,
+                    scheduledAt: campaign.scheduledAt,
+                    timezone: campaign.timezone,
+                    sendType: campaign.sendType
+                }
             }
         });
 
@@ -1136,10 +1203,15 @@ exports.generateQRCode = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -1159,11 +1231,13 @@ exports.generateQRCode = async (req, res) => {
             lastActivity: new Date()
         };
 
-        await campaign.save();
+        await Campaign.update(campaignId, {
+            status: 'READY'
+        });
 
         // Initialize WhatsApp session with timeout
         console.log(`📱 Initializing new WhatsApp session for campaign ${campaignId}`);
-        await whatsappService.prepareWhatsAppSessions([campaign], req.user._id);
+        await whatsappService.prepareWhatsAppSessions([campaign], req.user.id);
 
         res.json({
             message: "QR code generation initiated",
@@ -1182,10 +1256,15 @@ exports.checkConnection = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -1195,10 +1274,10 @@ exports.checkConnection = async (req, res) => {
         const hasActiveSession = whatsappService.hasActiveSession(campaignId);
 
         res.json({
-            isConnected: campaign.whatsappSession.isConnected,
-            lastActivity: campaign.whatsappSession.lastActivity,
+            isConnected: campaign.whatsappSessionConnected,
+            lastActivity: campaign.whatsappSessionLastActivity,
             hasActiveSession: hasActiveSession,
-            sessionId: campaign.whatsappSession.sessionId
+            sessionId: campaign.sessionId
         });
 
     } catch (err) {
@@ -1212,10 +1291,15 @@ exports.forceCleanupSession = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -1230,7 +1314,9 @@ exports.forceCleanupSession = async (req, res) => {
             sessionId: null,
             lastActivity: null
         };
-        await campaign.save();
+        await Campaign.update(campaignId, {
+            status: 'READY'
+        });
 
         res.json({
             message: "Session cleaned up successfully",
@@ -1248,22 +1334,27 @@ exports.startCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        if (campaign.status !== 'ready') {
+        if (campaign.status !== 'READY') {
             return res.status(400).json({ 
                 message: "Campaign is not ready to start" 
             });
         }
 
-        if (!campaign.whatsappSession.isConnected) {
+        if (!campaign.whatsappSessionConnected) {
             return res.status(400).json({ 
                 message: "WhatsApp account is not connected" 
             });
@@ -1276,14 +1367,14 @@ exports.startCampaign = async (req, res) => {
         }
 
         // Start WhatsApp campaign
-        await whatsappService.handleStartCampaign(campaignId, req.user._id);
+        await whatsappService.handleStartCampaign(campaignId, req.user.id);
 
         res.json({
             message: "Campaign started successfully",
             campaign: {
-                id: campaign._id,
-                status: 'running',
-                totalRecipients: campaign.progress.total,
+                id: campaign.id,
+                status: 'RUNNING',
+                totalRecipients: campaign.totalRecipients,
                 startedAt: new Date()
             }
         });
@@ -1299,10 +1390,15 @@ exports.getProgress = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -1310,9 +1406,14 @@ exports.getProgress = async (req, res) => {
 
         res.json({
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status,
-                progress: campaign.progress,
+                progress: {
+                    total: campaign.totalRecipients,
+                    sent: campaign.sentCount,
+                    failed: campaign.failedCount,
+                    delivered: campaign.deliveredCount
+                },
                 startedAt: campaign.startedAt,
                 completedAt: campaign.completedAt
             }
@@ -1329,29 +1430,34 @@ exports.pauseCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        if (campaign.status !== 'running') {
+        if (campaign.status !== 'RUNNING') {
             return res.status(400).json({ 
                 message: "Campaign is not running" 
             });
         }
 
         // Pause campaign
-        await whatsappService.handleStopCampaign(campaignId, 'paused', req.user._id);
+        await whatsappService.handleStopCampaign(campaignId, 'PAUSED', req.user.id);
 
         res.json({
             message: "Campaign paused successfully",
             campaign: {
-                id: campaign._id,
-                status: 'paused'
+                id: campaign.id,
+                status: 'PAUSED'
             }
         });
 
@@ -1366,29 +1472,34 @@ exports.resumeCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        if (campaign.status !== 'paused') {
+        if (campaign.status !== 'PAUSED') {
             return res.status(400).json({ 
                 message: "Campaign is not paused" 
             });
         }
 
         // Resume campaign
-        await whatsappService.handleStartCampaign(campaignId, req.user._id);
+        await whatsappService.handleStartCampaign(campaignId, req.user.id);
 
         res.json({
             message: "Campaign resumed successfully",
             campaign: {
-                id: campaign._id,
-                status: 'running'
+                id: campaign.id,
+                status: 'RUNNING'
             }
         });
 
@@ -1410,7 +1521,7 @@ exports.getMyCampaigns = async (req, res) => {
             limit = 10 
         } = req.query;
         
-        const filter = { user: req.user._id };
+        const filter = { user: req.user.id };
         
         // Filter by status
         if (status) {
@@ -1433,13 +1544,14 @@ exports.getMyCampaigns = async (req, res) => {
             }
         }
 
-        const campaigns = await Campaign.find(filter)
-            .sort({ createdAt: -1 })
-            .limit(limit * 1)
-            .skip((page - 1) * limit)
+        const campaigns = await Campaign.findAll(filter, {
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: (page - 1) * limit
+        })
             .select('title status progress createdAt startedAt completedAt message');
 
-        const total = await Campaign.countDocuments(filter);
+        const total = await Campaign.count(filter);
 
         res.json({
             campaigns,
@@ -1478,7 +1590,7 @@ exports.searchCampaigns = async (req, res) => {
             limit = 10 
         } = req.query;
         
-        const filter = { user: req.user._id };
+        const filter = { user: req.user.id };
         
         // General search query (searches in title and message)
         if (query) {
@@ -1513,13 +1625,14 @@ exports.searchCampaigns = async (req, res) => {
         const sortConfig = {};
         sortConfig[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-        const campaigns = await Campaign.find(filter)
-            .sort(sortConfig)
-            .limit(limit * 1)
-            .skip((page - 1) * limit)
+        const campaigns = await Campaign.findAll(filter, {
+            orderBy: sortConfig,
+            take: limit,
+            skip: (page - 1) * limit
+        })
             .select('title status progress createdAt startedAt completedAt message');
 
-        const total = await Campaign.countDocuments(filter);
+        const total = await Campaign.count(filter);
 
         res.json({
             campaigns,
@@ -1639,25 +1752,6 @@ exports.getCampaignDetails = async (req, res) => {
 
         res.json({
             campaign: campaignData
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
-                    isConnected: campaign.whatsappSession.isConnected
-                },
-                attachment: campaign.attachment ? {
-                    originalName: campaign.attachment.originalName,
-                    size: campaign.attachment.size,
-                    mimetype: campaign.attachment.mimetype
-                } : null,
-                recipientsCount: campaign.recipients.length,
-                createdAt: campaign.createdAt,
-                startedAt: campaign.startedAt,
-                completedAt: campaign.completedAt
-            }
         });
 
     } catch (err) {
@@ -1812,28 +1906,34 @@ exports.pauseCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        if (campaign.status !== 'running') {
+        if (campaign.status !== 'RUNNING') {
             return res.status(400).json({ 
                 message: "Campaign is not running" 
             });
         }
 
-        campaign.status = 'paused';
-        await campaign.save();
+        await Campaign.update(campaignId, {
+            status: 'PAUSED'
+        });
 
         res.json({
             message: "Campaign paused successfully",
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status
             }
         });
@@ -1849,28 +1949,34 @@ exports.resumeCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        if (campaign.status !== 'paused') {
+        if (campaign.status !== 'PAUSED') {
             return res.status(400).json({ 
                 message: "Campaign is not paused" 
             });
         }
 
-        campaign.status = 'running';
-        await campaign.save();
+        await Campaign.update(campaignId, {
+            status: 'RUNNING'
+        });
 
         res.json({
             message: "Campaign resumed successfully",
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status
             }
         });
@@ -1886,16 +1992,21 @@ exports.deleteCampaign = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        if (campaign.status === 'running') {
+        if (campaign.status === 'RUNNING') {
             return res.status(400).json({ 
                 message: "Cannot delete running campaign" 
             });
@@ -1908,7 +2019,7 @@ exports.deleteCampaign = async (req, res) => {
             }
         }
 
-        await Campaign.findByIdAndDelete(campaignId);
+        await Campaign.delete(campaignId);
 
         res.json({
             message: "Campaign deleted successfully"
@@ -1941,16 +2052,21 @@ exports.setCampaignInterval = async (req, res) => {
             });
         }
 
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
-        if (campaign.status === 'running') {
+        if (campaign.status === 'RUNNING') {
             return res.status(400).json({ 
                 message: "Cannot modify running campaign" 
             });
@@ -1985,23 +2101,28 @@ exports.setCampaignInterval = async (req, res) => {
         }
 
         // Update campaign settings
-        if (interval) campaign.interval = interval;
-        
-        campaign.schedule = {
+        const updateData = {
             isScheduled: sendType === 'scheduled',
             scheduledAt: sendType === 'scheduled' ? new Date(scheduledAt) : null,
             timezone: timezone || 'Asia/Tehran',
             sendType: sendType || 'immediate'
         };
-
-        await campaign.save();
+        
+        if (interval) updateData.interval = interval;
+        
+        await Campaign.update(campaignId, updateData);
 
         res.json({
             message: "Campaign settings updated successfully",
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 interval: campaign.interval,
-                schedule: campaign.schedule,
+                schedule: {
+                    isScheduled: campaign.isScheduled,
+                    scheduledAt: campaign.scheduledAt,
+                    timezone: campaign.timezone,
+                    sendType: campaign.sendType
+                },
                 status: campaign.status
             }
         });
@@ -2017,10 +2138,15 @@ exports.getCampaignStepStatus = async (req, res) => {
     try {
         const { campaignId } = req.params;
         
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
         if (!campaign) {
             return res.status(404).json({ message: "Campaign not found" });
@@ -2062,35 +2188,40 @@ exports.getCampaignStepStatus = async (req, res) => {
         }
 
         // Step 6: WhatsApp connected
-        if (campaign.whatsappSession && campaign.whatsappSession.isConnected) {
+        if (campaign.whatsappSessionConnected) {
             stepStatus.step6.completed = true;
             currentStep = 6;
         }
 
         // Step 7: Campaign running
-        if (campaign.status === 'running') {
+        if (campaign.status === 'RUNNING') {
             stepStatus.step7.completed = true;
             currentStep = 7;
         }
 
         // Step 8: Campaign completed
-        if (campaign.status === 'completed') {
+        if (campaign.status === 'COMPLETED') {
             stepStatus.step8.completed = true;
             currentStep = 8;
         }
 
         res.json({
             campaign: {
-                id: campaign._id,
+                id: campaign.id,
                 status: campaign.status,
                 currentStep: currentStep,
                 stepStatus: stepStatus,
-                progress: campaign.progress,
+                progress: {
+                    total: campaign.totalRecipients,
+                    sent: campaign.sentCount,
+                    failed: campaign.failedCount,
+                    delivered: campaign.deliveredCount
+                },
                 message: campaign.message,
                 interval: campaign.interval,
                 recipientsCount: campaign.recipients ? campaign.recipients.length : 0,
                 hasAttachment: !!(campaign.attachment && campaign.attachment.filename),
-                whatsappConnected: !!(campaign.whatsappSession && campaign.whatsappSession.isConnected)
+                whatsappConnected: !!campaign.whatsappSessionConnected
             }
         });
 

@@ -61,7 +61,7 @@ if (!fs.existsSync(uploadDir)) {
 // Test 6: Required Dependencies
 console.log('\n6. Testing Required Dependencies:');
 const requiredDeps = [
-    'express', 'mongoose', 'jsonwebtoken', 'bcryptjs', 'passport',
+    'express', '@prisma/client', 'prisma', 'mysql2', 'jsonwebtoken', 'bcryptjs', 'passport',
     'multer', 'xlsx', 'qrcode', 'uuid', 'whatsapp-web.js', 'ws'
 ];
 

@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const Campaign = require('../models/Campaign');
+const { Campaign } = require('../models');
 
 class WebSocketService {
     constructor() {
@@ -73,20 +73,18 @@ class WebSocketService {
     // Send campaign update to all connected clients for a specific campaign
     async sendCampaignUpdate(campaignId, userId) {
         try {
-            const campaign = await Campaign.findOne({ 
-                _id: campaignId, 
-                user: userId 
-            });
-
-            if (!campaign) {
+            const campaign = await Campaign.findById(campaignId);
+            
+            if (!campaign || campaign.userId !== userId) {
                 return;
             }
 
+
             const update = {
                 type: 'campaign_update',
-                campaignId: campaign._id,
+                campaignId: campaign.id,
                 data: {
-                    id: campaign._id,
+                    id: campaign.id,
                     title: campaign.title,
                     status: campaign.status,
                     progress: campaign.progress,

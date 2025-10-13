@@ -1,9 +1,10 @@
 // Check Environment Variables
+require('dotenv').config();
 console.log('🔍 Checking Environment Variables...\n');
 
 console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
 console.log('SESSION_SECRET exists:', !!process.env.SESSION_SECRET);
-console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
 console.log('PORT exists:', !!process.env.PORT);
 
 if (process.env.JWT_SECRET) {
@@ -19,13 +20,14 @@ if (process.env.SESSION_SECRET) {
 console.log('\n✅ Environment Variables Status:');
 console.log('- JWT_SECRET:', process.env.JWT_SECRET ? '✅ Set' : '❌ Not Set');
 console.log('- SESSION_SECRET:', process.env.SESSION_SECRET ? '✅ Set' : '❌ Not Set');
-console.log('- MONGODB_URI:', process.env.MONGODB_URI ? '✅ Set' : '❌ Not Set');
+console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ Set' : '❌ Not Set');
 console.log('- PORT:', process.env.PORT ? '✅ Set' : '❌ Not Set');
 
 console.log('\n🎯 Conclusion:');
-if (process.env.JWT_SECRET && process.env.SESSION_SECRET) {
+if (process.env.JWT_SECRET && process.env.SESSION_SECRET && process.env.DATABASE_URL) {
     console.log('✅ Your system is properly configured with secure secrets!');
     console.log('✅ Authentication should work correctly.');
+    console.log('✅ Database connection should work correctly.');
 } else {
     console.log('❌ Missing environment variables. Please check your .env file.');
 }

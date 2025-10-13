@@ -1,14 +1,9 @@
 // Script to make a user admin
-const mongoose = require('mongoose');
-const User = require('./src/models/User');
+const { User } = require('../src/models');
 require('dotenv').config();
 
 async function makeUserAdmin() {
     try {
-        // Connect to database
-        await mongoose.connect(process.env.MONGO_URI);
-        console.log('Connected to database');
-
         // Get user email from command line arguments
         const userEmail = process.argv[2];
         
@@ -19,7 +14,7 @@ async function makeUserAdmin() {
         }
 
         // Find user by email
-        const user = await User.findOne({ email: userEmail });
+        const user = await User.findByEmail(userEmail);
         
         if (!user) {
             console.log(`❌ User with email ${userEmail} not found`);
@@ -27,24 +22,21 @@ async function makeUserAdmin() {
         }
 
         // Check if user is already admin
-        if (user.role === 'admin') {
+        if (user.role === 'ADMIN') {
             console.log(`✅ User ${userEmail} is already an admin`);
             process.exit(0);
         }
 
         // Update user role to admin
-        await User.findByIdAndUpdate(user._id, { role: 'admin' });
+        await User.update(user.id, { role: 'ADMIN' });
         
         console.log(`✅ User ${userEmail} has been made admin successfully!`);
         console.log(`   Name: ${user.name}`);
         console.log(`   Email: ${user.email}`);
-        console.log(`   Role: admin`);
+        console.log(`   Role: ADMIN`);
         
     } catch (error) {
         console.error('❌ Error:', error.message);
-    } finally {
-        await mongoose.disconnect();
-        console.log('Disconnected from database');
     }
 }
 

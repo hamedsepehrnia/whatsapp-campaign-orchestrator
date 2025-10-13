@@ -95,11 +95,16 @@ exports.paymentCallback = async (req, res) => {
         }
 
         transaction.status = 'failure';
-        transaction.gatewayData.verifyResponse = verifyResponse;
-        await transaction.save();
+        await Transaction.update(transaction.id, {
+            gatewayData: {
+                ...transaction.gatewayData,
+                verifyResponse: verifyResponse
+            }
+        });
 
-        order.status = 'cancelled';
-        await order.save();
+        await Order.update(order.id, {
+            status: 'CANCELLED'
+        });
 
         return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment-failed?error=${verifyResponse.errors?.message || 'Payment failed'}`);
 
@@ -112,23 +117,29 @@ exports.paymentCallback = async (req, res) => {
 exports.confirmPayment = async (req, res) => {
     try {
         const { orderId, success } = req.body; // success: true/false
-        const order = await Order.findById(orderId).populate('package');
-        if (!order || order.user.toString() !== req.user._id.toString()) return res.status(404).json({ message: "Order not found" });
+        const order = await Order.findById(orderId);
+        if (!order || order.userId !== req.user.id) return res.status(404).json({ message: "Order not found" });
 
-        const status = success ? 'success' : 'failure';
-        await Transaction.create({ order: order._id, amount: order.package.price, status, gateway: 'mock' });
+        const status = success ? 'SUCCESS' : 'FAILURE';
+        await Transaction.create({ orderId: order.id, amount: order.amount, status, gateway: 'mock' });
 
         if (success) {
-            order.status = 'paid';
-            await order.save();
+            await Order.update(order.id, {
+                status: 'PAID'
+            });
 
             // Add package to user's purchasedPackages
-            await User.findByIdAndUpdate(order.user, { $addToSet: { purchasedPackages: order.package._id } });
-            return res.json({ message: "Payment successful", orderId: order._id });
+            await User.update(order.userId, {
+                purchasedPackages: {
+                    connect: { id: order.packageId }
+                }
+            });
+            return res.json({ message: "Payment successful", orderId: order.id });
         } else {
-            order.status = 'cancelled';
-            await order.save();
-            return res.status(400).json({ message: "Payment failed", orderId: order._id });
+            await Order.update(order.id, {
+                status: 'CANCELLED'
+            });
+            return res.status(400).json({ message: "Payment failed", orderId: order.id });
         }
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });

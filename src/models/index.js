@@ -445,6 +445,31 @@ module.exports = {
           }
         }
       });
+    },
+
+    async findByTargetAndChannel(target, channel, purpose) {
+      return await prisma.otp.findUnique({
+        where: {
+          target_channel_purpose: {
+            target,
+            channel,
+            purpose
+          }
+        }
+      });
+    },
+
+    async upsert(where, data) {
+      return await prisma.otp.upsert({
+        where: {
+          target_channel_purpose: where
+        },
+        update: data,
+        create: {
+          ...where,
+          ...data
+        }
+      });
     }
   },
 

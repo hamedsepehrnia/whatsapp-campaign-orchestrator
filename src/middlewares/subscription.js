@@ -1,5 +1,4 @@
-const User = require('../models/User');
-const Campaign = require('../models/Campaign');
+const { User, Campaign } = require('../models');
 
 // Middleware to check subscription limits for campaign creation
 exports.checkSubscriptionLimit = async (req, res, next) => {
@@ -13,7 +12,7 @@ exports.checkSubscriptionLimit = async (req, res, next) => {
         }
 
         // Get user with purchased packages
-        const user = await User.findById(req.user._id).populate('purchasedPackages');
+        const user = await User.findById(req.user.id);
         
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -57,8 +56,8 @@ exports.checkSubscriptionLimit = async (req, res, next) => {
         const currentUsage = await Campaign.aggregate([
             {
                 $match: {
-                    user: req.user._id,
-                    status: { $in: ['running', 'completed'] }
+                    userId: req.user.id,
+                    status: { $in: ['RUNNING', 'COMPLETED'] }
                 }
             },
             {
@@ -104,17 +103,15 @@ exports.checkCampaignStartPermission = async (req, res, next) => {
         const { campaignId } = req.params;
         
         // Get campaign
-        const campaign = await Campaign.findOne({ 
-            _id: campaignId, 
-            user: req.user._id 
-        });
-
-        if (!campaign) {
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign || campaign.userId !== req.user.id) {
             return res.status(404).json({ message: "Campaign not found" });
         }
 
+
         // Get user with subscription info
-        const user = await User.findById(req.user._id);
+        const user = await User.findById(req.user.id);
         
         if (!user.subscription.isActive || new Date() > user.subscription.expiresAt) {
             return res.status(403).json({ 
@@ -148,7 +145,7 @@ exports.checkCampaignStartPermission = async (req, res, next) => {
 // Middleware to get user's subscription info
 exports.getSubscriptionInfo = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id).populate('purchasedPackages');
+        const user = await User.findById(req.user.id);
         
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -166,8 +163,8 @@ exports.getSubscriptionInfo = async (req, res, next) => {
         const currentUsage = await Campaign.aggregate([
             {
                 $match: {
-                    user: req.user._id,
-                    status: { $in: ['running', 'completed'] }
+                    userId: req.user.id,
+                    status: { $in: ['RUNNING', 'COMPLETED'] }
                 }
             },
             {
@@ -189,7 +186,7 @@ exports.getSubscriptionInfo = async (req, res, next) => {
             used: usedMessages,
             remaining: remainingQuota,
             packages: user.purchasedPackages.map(pkg => ({
-                id: pkg._id,
+                id: pkg.id,
                 title: pkg.title,
                 messageLimit: pkg.messageLimit
             }))
