@@ -48,6 +48,24 @@ exports.registerUser = async (req, res) => {
             avatar: null,
         });
 
+        // Invalidate OTP record for reuse prevention
+        try { await Otp.delete(otpRecord.id); } catch (e) {}
+        res.json({ 
+            message: "User registered successfully", 
+            user: { 
+                id: user.id, 
+                name: user.name, 
+                username: user.username,
+                email: user.email 
+            } 
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
 // REGISTER WITHOUT OTP (Simple Registration)
 exports.registerUserSimple = async (req, res) => {
     try {
@@ -79,24 +97,6 @@ exports.registerUserSimple = async (req, res) => {
             address: null,
             avatar: null,
         });
-
-        // Invalidate OTP record for reuse prevention
-        try { await Otp.delete(otpRecord.id); } catch (e) {}
-        res.json({ 
-            message: "User registered successfully", 
-            user: { 
-                id: user.id, 
-                name: user.name, 
-                username: user.username,
-                email: user.email 
-            } 
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
 
         res.json({ 
             message: "User registered successfully (without OTP)", 
