@@ -1,5 +1,5 @@
 // Middleware برای validation کردن Campaign Status
-const validStatuses = ['DRAFT', 'ACTIVE', 'PAUSED', 'COMPLETED', 'FAILED', 'CANCELLED'];
+const validStatuses = ['DRAFT', 'READY', 'RUNNING', 'COMPLETED', 'PAUSED', 'FAILED'];
 
 exports.validateCampaignStatus = (req, res, next) => {
     const { status } = req.query;
