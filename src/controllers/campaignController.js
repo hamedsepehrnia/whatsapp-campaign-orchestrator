@@ -1,4 +1,4 @@
-const { Campaign, User } = require('../models');
+const { Campaign, User, Recipient, Attachment } = require('../models');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');
@@ -268,9 +268,16 @@ exports.uploadRecipients = [
                 });
             }
 
-            // Update campaign with recipients
+            // Save recipients to Recipient table
+            const recipientsWithCampaignId = recipients.map(recipient => ({
+                ...recipient,
+                campaignId: parseInt(campaignId)
+            }));
+            
+            await Recipient.createMany(recipientsWithCampaignId);
+
+            // Update campaign with total recipients count
             await Campaign.update(campaignId, {
-                recipients: recipients,
                 totalRecipients: recipients.length,
                 status: 'READY'
             });
@@ -389,27 +396,30 @@ exports.uploadAttachment = [
                 });
             }
 
-            // Delete old attachment if exists
-            if (campaign.attachment && campaign.attachment.path) {
-                if (fs.existsSync(campaign.attachment.path)) {
+            // Delete old attachments if exist
+            const existingAttachments = await Attachment.findByCampaign(campaignId);
+            for (const attachment of existingAttachments) {
+                if (fs.existsSync(attachment.path)) {
                     try {
-                        fs.unlinkSync(campaign.attachment.path);
+                        fs.unlinkSync(attachment.path);
                     } catch (error) {
                         console.error('❌ Error deleting old attachment file:', error.message);
                     }
                 }
+                await Attachment.delete(attachment.id);
             }
 
-            // Update campaign with new attachment info
-            await Campaign.update(campaignId, {
-                attachment: {
-                    filename: req.file.filename,
-                    originalName: req.file.originalname,
-                    mimetype: req.file.mimetype,
-                    size: req.file.size,
-                    path: req.file.path
-                }
-            });
+            // Create new attachment record
+            const attachmentData = {
+                campaignId: parseInt(campaignId),
+                filename: req.file.filename,
+                originalName: req.file.originalname,
+                mimetype: req.file.mimetype,
+                size: req.file.size,
+                path: req.file.path
+            };
+            
+            await Attachment.create(attachmentData);
 
             res.json({
                 message: "Attachment uploaded successfully",
@@ -1521,7 +1531,7 @@ exports.getMyCampaigns = async (req, res) => {
             limit = 10 
         } = req.query;
         
-        const filter = { user: req.user.id };
+        const filter = { userId: parseInt(req.user.id) };
         
         // Filter by status
         if (status) {
@@ -1530,28 +1540,26 @@ exports.getMyCampaigns = async (req, res) => {
         
         // Filter by title (case-insensitive search)
         if (title) {
-            filter.title = { $regex: title, $options: 'i' };
+            filter.title = {
+                contains: title,
+                mode: 'insensitive'
+            };
         }
         
         // Filter by date range
         if (startDate || endDate) {
             filter.createdAt = {};
             if (startDate) {
-                filter.createdAt.$gte = new Date(startDate);
+                filter.createdAt.gte = new Date(startDate);
             }
             if (endDate) {
-                filter.createdAt.$lte = new Date(endDate);
+                filter.createdAt.lte = new Date(endDate);
             }
         }
 
-        const campaigns = await Campaign.findAll(filter, {
-            orderBy: { createdAt: 'desc' },
-            take: limit,
-            skip: (page - 1) * limit
-        })
-            .select('title status progress createdAt startedAt completedAt message');
+        const campaigns = await Campaign.findAll(filter);
 
-        const total = await Campaign.count(filter);
+        const total = campaigns.length;
 
         res.json({
             campaigns,
@@ -1715,12 +1723,12 @@ exports.getCampaignDetails = async (req, res) => {
 
         // Include recipients if requested
         if (includes.includes('recipients')) {
-            campaignData.recipients = campaign.recipients;
+            campaignData.recipients = await Recipient.findByCampaign(campaignId);
         }
 
         // Include attachments if requested
         if (includes.includes('attachments')) {
-            campaignData.attachments = campaign.attachments;
+            campaignData.attachments = await Attachment.findByCampaign(campaignId);
         }
 
         // Include report if requested

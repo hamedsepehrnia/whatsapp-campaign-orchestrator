@@ -1,222 +1,412 @@
-# 📮 Postman Setup Guide
+# 📮 راهنمای Postman
 
-## 🚀 Quick Start
+راهنمای کامل استفاده از Postman Collection برای تست API ها
 
-### 1. Import Collection
-1. Open Postman
-2. Click **Import** button
-3. Select `WhatsApp-Campaign-API.postman_collection.json`
-4. Click **Import**
+## 📥 نصب و راه‌اندازی
 
-### 2. Import Environment
-1. Click **Import** button
-2. Select `WhatsApp-Campaign-Environment.postman_environment.json`
-3. Click **Import**
-4. Select the environment from dropdown (top-right)
+### دانلود Postman
+1. به [postman.com](https://www.postman.com) بروید
+2. Postman Desktop App را دانلود کنید
+3. حساب کاربری ایجاد کنید (اختیاری)
 
-### 3. Start Server
-```bash
-npm start
-```
+### Import Collection
+1. فایل `WhatsApp-Campaign-API-Complete.postman_collection.json` را دانلود کنید
+2. در Postman، روی Import کلیک کنید
+3. فایل collection را انتخاب کنید
+4. Environment file را نیز import کنید
 
-## 📋 Collection Structure
+## 🌍 تنظیمات Environment
 
-### 🔐 Authentication
-- **Request OTP** - Send OTP via SMS/Email
-- **Verify OTP** - Verify OTP code
-- **Register User** - Create new user account
-- **Login** - Login and get tokens
-
-### 📱 Campaign Management
-- **Get Subscription Info** - Check message limits
-- **Create Campaign** - Create new WhatsApp campaign
-- **Upload Recipients** - Upload Excel file with phone numbers
-- **Upload Attachment** - Upload image/PDF attachment
-- **Generate QR Code** - Generate WhatsApp QR code
-- **Check WhatsApp Connection** - Check connection status
-- **Start Campaign** - Begin sending messages
-- **Pause Campaign** - Pause running campaign
-- **Resume Campaign** - Resume paused campaign
-- **Get Campaign Progress** - Check real-time progress
-- **Get My Campaigns** - List user campaigns
-- **Generate Campaign Report** - Download campaign report
-- **Delete Campaign** - Delete campaign
-
-### 🔌 WebSocket Testing
-- **WebSocket Connection Test** - Test real-time updates
-
-### 🔄 Refresh Token
-- **Refresh Access Token** - Get new access token
-- **Logout (Single Device)** - Logout current device
-- **Logout All Devices** - Logout all devices
-
-## 🧪 Testing Workflow
-
-### Step 1: Authentication
-1. **Request OTP** - Send OTP to your phone
-2. **Verify OTP** - Enter the OTP code
-3. **Register User** - Create account (if new user)
-4. **Login** - Login and get tokens
-
-### Step 2: Create Campaign
-1. **Get Subscription Info** - Check your limits
-2. **Create Campaign** - Create new campaign
-3. **Upload Recipients** - Upload Excel file
-4. **Upload Attachment** - Upload file (optional)
-
-### Step 3: WhatsApp Connection
-1. **Generate QR Code** - Get QR code for WhatsApp
-2. **Check WhatsApp Connection** - Verify connection
-3. **Start Campaign** - Begin sending messages
-
-### Step 4: Monitor Progress
-1. **Get Campaign Progress** - Check real-time progress
-2. **Pause/Resume Campaign** - Control campaign
-3. **Generate Campaign Report** - Get final report
-
-## 🔧 Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `base_url` | API base URL | `http://localhost:3000` |
-| `access_token` | JWT access token | Auto-set after login |
-| `refresh_token` | Refresh token | Auto-set after login |
-| `campaign_id` | Current campaign ID | Auto-set after campaign creation |
-| `package_id` | Package ID | Set manually |
-| `user_id` | User ID | Auto-set |
-| `verification_token` | OTP verification token | Auto-set after OTP verification |
-| `otp_code` | OTP code | `123456` |
-| `phone_number` | Phone number | `09120000000` |
-| `email` | Email address | `ali@example.com` |
-| `password` | Password | `Passw0rd123!` |
-| `campaign_message` | Campaign message | `سلام! پیشنهاد ویژه...` |
-| `websocket_url` | WebSocket URL | `ws://localhost:3000/ws/campaigns` |
-
-## 📱 WhatsApp Integration
-
-### QR Code Flow
-1. **Generate QR Code** - Creates WhatsApp session
-2. **QR Code sent via WebSocket** - Real-time QR code
-3. **Scan QR Code** - Use WhatsApp mobile app
-4. **Check Connection** - Verify WhatsApp is connected
-5. **Start Campaign** - Begin sending messages
-
-### WebSocket Messages
-Connect to: `ws://localhost:3000/ws/campaigns?campaignId=:campaignId&userId=:userId`
-
-#### Message Types:
-- **`qr_code`** - QR code for WhatsApp connection
-- **`status_update`** - Campaign status changes
-- **`progress_update`** - Real-time progress updates
-- **`error_update`** - Error notifications
-- **`completion_update`** - Campaign completion
-
-## 🧪 Test Files
-
-### Excel File for Recipients
-Create `sample-recipients.xlsx` with columns:
-- `phone` - Phone number (e.g., 09123456789)
-- `name` - Recipient name (e.g., علی احمدی)
-
-### Sample Image
-Create `sample-image.jpg` for testing attachments.
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-#### 1. Authentication Errors
-- Check if server is running
-- Verify environment variables
-- Ensure OTP is verified before registration
-
-#### 2. Campaign Creation Errors
-- Check subscription limits
-- Verify campaign data format
-- Ensure user is logged in
-
-#### 3. WhatsApp Connection Errors
-- Check if Chrome/Chromium is installed
-- Verify WebSocket connection
-- Check server logs for errors
-
-#### 4. File Upload Errors
-- Check file format (Excel for recipients)
-- Verify file size limits
-- Ensure proper Content-Type headers
-
-### Debug Steps
-1. **Check Server Logs** - Look for error messages
-2. **Verify Environment** - Ensure all variables are set
-3. **Test Authentication** - Login flow should work
-4. **Check WebSocket** - Real-time updates should work
-5. **Verify WhatsApp** - QR code should appear
-
-## 📊 Expected Responses
-
-### Successful Login
+### ایجاد Environment
 ```json
 {
-  "message": "Login successful",
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "refresh_token_string",
+  "name": "WhatsApp Campaign API",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "enabled": true
+    },
+    {
+      "key": "api_url",
+      "value": "{{base_url}}/api",
+      "enabled": true
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "campaign_id",
+      "value": "",
+      "enabled": true
+    }
+  ]
+}
+```
+
+### تنظیمات متغیرها
+- **base_url**: آدرس سرور (پیش‌فرض: http://localhost:3000)
+- **api_url**: آدرس API (پیش‌فرض: {{base_url}}/api)
+- **auth_token**: توکن احراز هویت (خودکار پر می‌شود)
+- **user_id**: شناسه کاربر (خودکار پر می‌شود)
+- **campaign_id**: شناسه کمپین (خودکار پر می‌شود)
+
+## 🔐 احراز هویت
+
+### 1. ثبت‌نام ساده
+```http
+POST {{api_url}}/user/register-simple
+Content-Type: application/json
+
+{
+  "name": "علی احمدی",
+  "username": "ali_ahmadi",
+  "email": "ali@example.com",
+  "phone": "09123456789",
+  "password": "password123"
+}
+```
+
+### 2. ورود
+```http
+POST {{api_url}}/user/login
+Content-Type: application/json
+
+{
+  "email": "ali@example.com",
+  "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "User login successfully",
+  "token": "jwt-token-here",
   "user": {
-    "id": "user_id",
+    "id": 1,
     "name": "علی احمدی",
-    "email": "ali@example.com"
+    "username": "ali_ahmadi",
+    "email": "ali@example.com",
+    "role": "USER"
   }
 }
 ```
 
-### Successful Campaign Creation
+### 3. تنظیم توکن
+1. بعد از ورود موفق، توکن را کپی کنید
+2. در Environment، متغیر `auth_token` را تنظیم کنید
+3. متغیر `user_id` را نیز تنظیم کنید
+
+## 🎯 تست کمپین‌ها
+
+### 1. ایجاد کمپین
+```http
+POST {{api_url}}/campaigns
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "message": "سلام! این یک پیام تست است.",
+  "title": "کمپین تست"
+}
+```
+
+**Response:**
 ```json
 {
   "message": "Campaign created successfully",
   "campaign": {
-    "id": "campaign_id",
-    "status": "draft",
-    "createdAt": "2024-01-01T12:00:00.000Z"
+    "id": 1,
+    "title": "کمپین تست",
+    "status": "DRAFT"
   }
 }
 ```
 
-### WebSocket QR Code
-```json
+### 2. لیست کمپین‌ها
+```http
+GET {{api_url}}/campaigns
+Authorization: Bearer {{auth_token}}
+```
+
+### 3. جزئیات کمپین
+```http
+GET {{api_url}}/campaigns/{{campaign_id}}
+Authorization: Bearer {{auth_token}}
+```
+
+## 📁 آپلود فایل‌ها
+
+### 1. دانلود قالب Excel
+```http
+GET {{api_url}}/campaigns/excel-template/download
+```
+
+### 2. آپلود مخاطبین
+```http
+POST {{api_url}}/campaigns/{{campaign_id}}/recipients
+Authorization: Bearer {{auth_token}}
+Content-Type: multipart/form-data
+
+recipientsFile: [فایل Excel]
+```
+
+### 3. آپلود پیوست
+```http
+POST {{api_url}}/campaigns/{{campaign_id}}/attachment
+Authorization: Bearer {{auth_token}}
+Content-Type: multipart/form-data
+
+attachment: [فایل پیوست]
+```
+
+## ⚙️ تنظیمات کمپین
+
+### 1. تنظیم فاصله ارسال
+```http
+PUT {{api_url}}/campaigns/{{campaign_id}}/interval
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
 {
-  "type": "qr_code",
-  "campaignId": "campaign_id",
-  "data": {
-    "qrCode": "data:image/png;base64,iVBORw0KGgo...",
-    "timestamp": "2024-01-01T12:00:00.000Z"
+  "interval": "10s",
+  "sendType": "immediate"
+}
+```
+
+### 2. تولید QR Code
+```http
+POST {{api_url}}/campaigns/{{campaign_id}}/qr-code
+Authorization: Bearer {{auth_token}}
+```
+
+### 3. بررسی وضعیت اتصال
+```http
+GET {{api_url}}/campaigns/{{campaign_id}}/connection
+Authorization: Bearer {{auth_token}}
+```
+
+## 🚀 کنترل کمپین
+
+### 1. شروع کمپین
+```http
+POST {{api_url}}/campaigns/{{campaign_id}}/start
+Authorization: Bearer {{auth_token}}
+```
+
+### 2. توقف کمپین
+```http
+POST {{api_url}}/campaigns/{{campaign_id}}/pause
+Authorization: Bearer {{auth_token}}
+```
+
+### 3. ادامه کمپین
+```http
+POST {{api_url}}/campaigns/{{campaign_id}}/resume
+Authorization: Bearer {{auth_token}}
+```
+
+## 📊 گزارش‌گیری
+
+### 1. گزارش کمپین
+```http
+GET {{api_url}}/campaigns/{{campaign_id}}/report
+Authorization: Bearer {{auth_token}}
+```
+
+### 2. دانلود گزارش Excel
+```http
+GET {{api_url}}/campaigns/{{campaign_id}}/report/download
+Authorization: Bearer {{auth_token}}
+```
+
+## 👨‍💼 تست پنل ادمین
+
+### 1. لیست کاربران
+```http
+GET {{api_url}}/admin/users
+Authorization: Bearer {{auth_token}}
+```
+
+### 2. آمار داشبورد
+```http
+GET {{api_url}}/admin/dashboard
+Authorization: Bearer {{auth_token}}
+```
+
+### 3. لیست تراکنش‌ها
+```http
+GET {{api_url}}/admin/transactions
+Authorization: Bearer {{auth_token}}
+```
+
+## 🔄 تست WebSocket
+
+### 1. اتصال WebSocket
+```javascript
+// در Postman، از WebSocket request استفاده کنید
+ws://localhost:3000/ws/campaigns?campaignId={{campaign_id}}&userId={{user_id}}
+```
+
+### 2. رویدادهای WebSocket
+- `campaign_update`: به‌روزرسانی وضعیت کمپین
+- `progress_update`: به‌روزرسانی پیشرفت
+- `status_update`: به‌روزرسانی وضعیت
+- `error_update`: به‌روزرسانی خطا
+- `qr_code`: دریافت QR Code
+- `completion_update`: تکمیل کمپین
+
+## 🧪 تست‌های پیشرفته
+
+### 1. تست Rate Limiting
+```http
+# ارسال 10 درخواست متوالی
+GET {{api_url}}/campaigns
+Authorization: Bearer {{auth_token}}
+```
+
+### 2. تست Validation
+```http
+# ارسال داده نامعتبر
+POST {{api_url}}/campaigns
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "message": "",
+  "title": ""
+}
+```
+
+### 3. تست Error Handling
+```http
+# درخواست بدون احراز هویت
+GET {{api_url}}/campaigns
+```
+
+## 📋 Collection Structure
+
+### Folders
+```
+📁 WhatsApp Campaign API
+├── 📁 Authentication
+│   ├── Register Simple
+│   ├── Login
+│   └── Logout
+├── 📁 Campaigns
+│   ├── Create Campaign
+│   ├── List Campaigns
+│   ├── Get Campaign Details
+│   ├── Update Campaign
+│   └── Delete Campaign
+├── 📁 File Management
+│   ├── Download Excel Template
+│   ├── Upload Recipients
+│   ├── Upload Attachment
+│   └── Delete Attachment
+├── 📁 Campaign Control
+│   ├── Generate QR Code
+│   ├── Check Connection
+│   ├── Start Campaign
+│   ├── Pause Campaign
+│   └── Resume Campaign
+├── 📁 Reporting
+│   ├── Get Campaign Report
+│   └── Download Report
+└── 📁 Admin
+    ├── List Users
+    ├── Dashboard Stats
+    └── List Transactions
+```
+
+## 🔧 تنظیمات پیشرفته
+
+### Pre-request Scripts
+```javascript
+// تنظیم خودکار متغیرها
+if (pm.response.code === 200) {
+  const response = pm.response.json();
+  
+  if (response.token) {
+    pm.environment.set("auth_token", response.token);
+  }
+  
+  if (response.user && response.user.id) {
+    pm.environment.set("user_id", response.user.id);
+  }
+  
+  if (response.campaign && response.campaign.id) {
+    pm.environment.set("campaign_id", response.campaign.id);
   }
 }
 ```
 
-## 🎯 Best Practices
+### Tests
+```javascript
+// تست‌های خودکار
+pm.test("Status code is 200", function () {
+  pm.response.to.have.status(200);
+});
 
-### 1. Test Sequence
-- Always start with authentication
-- Create campaign before testing WhatsApp
-- Use WebSocket for real-time updates
-- Test with small recipient lists first
+pm.test("Response has required fields", function () {
+  const response = pm.response.json();
+  pm.expect(response).to.have.property('message');
+});
 
-### 2. Environment Management
-- Use separate environments for dev/prod
-- Keep sensitive data in environment variables
-- Clear tokens when switching users
+pm.test("Response time is less than 2000ms", function () {
+  pm.expect(pm.response.responseTime).to.be.below(2000);
+});
+```
 
-### 3. Error Handling
-- Check response codes
-- Read error messages carefully
-- Use Postman console for debugging
+## 🚀 اجرای تست‌ها
 
-### 4. Performance Testing
-- Test with different recipient counts
-- Monitor WebSocket connections
-- Check server resource usage
+### 1. اجرای Collection
+1. روی Collection کلیک کنید
+2. روی "Run" کلیک کنید
+3. تست‌ها را انتخاب کنید
+4. روی "Run" کلیک کنید
+
+### 2. اجرای Folder
+1. روی Folder کلیک کنید
+2. روی "Run" کلیک کنید
+3. تست‌های مربوطه اجرا می‌شوند
+
+### 3. اجرای تست واحد
+1. روی Request کلیک کنید
+2. روی "Send" کلیک کنید
+3. نتیجه را بررسی کنید
+
+## 📊 گزارش‌گیری
+
+### 1. مشاهده نتایج
+- نتایج تست‌ها در Console نمایش داده می‌شود
+- آمار عملکرد در Reports قابل مشاهده است
+
+### 2. Export Results
+- نتایج را می‌توان به CSV export کرد
+- گزارش‌های تفصیلی در HTML قابل دریافت است
+
+## 🔍 عیب‌یابی
+
+### مشکلات رایج
+1. **خطای 401**: توکن احراز هویت نامعتبر
+2. **خطای 404**: آدرس API اشتباه
+3. **خطای 500**: خطای سرور
+
+### راه‌حل‌ها
+1. بررسی Environment variables
+2. بررسی توکن احراز هویت
+3. بررسی آدرس سرور
+4. بررسی لاگ‌های سرور
 
 ---
 
-**🎉 Happy Testing!**
-
-For issues or questions, check the server logs and ensure all environment variables are properly configured.
+**نکته**: این راهنما به‌روزرسانی می‌شود. لطفاً آخرین نسخه را بررسی کنید.

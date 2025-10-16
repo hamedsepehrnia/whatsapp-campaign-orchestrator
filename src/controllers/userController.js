@@ -131,6 +131,15 @@ exports.loginUser = async (req, res) => {
             { expiresIn: "30d" }
         );
 
+        // ذخیره اطلاعات کاربر در session
+        if (req.session) {
+            req.session.userId = user.id;
+            req.session.userRole = user.role;
+            req.session.userEmail = user.email;
+            req.session.token = token;
+            console.log('💾 Session saved for user:', user.email);
+        }
+
         return res.status(200).json({
             message: "User login successfully",
             token,
@@ -187,6 +196,15 @@ exports.editProfile = async (req, res) => {
             updateData.email = email;
         }
 
+        // بررسی اینکه phone قبلاً وجود نداشته باشه (اگر تغییر کرده)
+        if (req.body.phone) {
+            const existingPhone = await User.findByPhone(req.body.phone);
+            if (existingPhone && existingPhone.id !== user.id) {
+                return res.status(400).json({ message: "Phone number already in use" });
+            }
+            updateData.phone = req.body.phone;
+        }
+
         if (age !== undefined) {
             if (typeof age !== "number" || age < 0) return res.status(400).json({ message: "Invalid age" });
             updateData.age = age;
@@ -229,8 +247,20 @@ exports.editProfile = async (req, res) => {
 
 // LOGOUT
 exports.logoutUser = async (req, res, next) => {
-    req.logout(err => {
-        if (err) return next(err);
-        res.json({ message: "Logout successfully" });
-    });
+    // پاک کردن session
+    if (req.session) {
+        console.log('🗑️ Clearing session for user:', req.session.userEmail);
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('❌ Error destroying session:', err);
+                return next(err);
+            }
+            res.json({ message: "Logout successfully" });
+        });
+    } else {
+        req.logout(err => {
+            if (err) return next(err);
+            res.json({ message: "Logout successfully" });
+        });
+    }
 };

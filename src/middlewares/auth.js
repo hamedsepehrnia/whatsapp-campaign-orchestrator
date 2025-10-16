@@ -52,28 +52,28 @@ exports.authenticateJwt = async (req, res, next) => {
 // Session-based authentication (for frontend convenience)
 exports.authenticateSession = async (req, res, next) => {
     try {
-        // Debug logging (remove in production)
-        // console.log('🔍 Session auth check:', {
-        //     hasSession: !!req.session,
-        //     sessionId: req.session?.id,
-        //     userId: req.session?.userId,
-        //     token: req.session?.token,
-        //     jwt: req.session?.jwt
-        // });
+        // Debug logging
+        console.log('🔍 Session auth check:', {
+            hasSession: !!req.session,
+            sessionId: req.session?.id,
+            userId: req.session?.userId,
+            token: req.session?.token,
+            jwt: req.session?.jwt
+        });
 
         // Check if user is already authenticated via session
         if (req.session && req.session.userId) {
             try {
                 const user = await User.findById(req.session.userId);
                 if (user) {
-                    // console.log('✅ User found in session:', user.email);
+                    console.log('✅ User found in session:', user.email);
                     req.user = user;
                     return next();
                 } else {
-                    // console.log('❌ User not found for session userId:', req.session.userId);
+                    console.log('❌ User not found for session userId:', req.session.userId);
                 }
             } catch (dbError) {
-                // console.log('⚠️ Database error, using session data:', dbError.message);
+                console.log('⚠️ Database error, using session data:', dbError.message);
                 // If database is not available, create a mock user from session
                 req.user = {
                     id: req.session.userId,
@@ -87,25 +87,25 @@ exports.authenticateSession = async (req, res, next) => {
         // Fallback to JWT token extraction from session
         const token = extractToken(req);
         if (!token) {
-            // console.log('❌ No token found');
+            console.log('❌ No token found');
             return res.status(401).json({ 
                 message: "Authentication required",
                 hint: "Please login or provide valid token"
             });
         }
 
-        // console.log('🔑 Token found, verifying...');
+        console.log('🔑 Token found, verifying...');
         const jwtSecret = process.env.JWT_SECRET || 'fallback-jwt-secret-please-set-in-env';
         
         try {
             const payload = jwt.verify(token, jwtSecret);
             const user = await User.findById(payload.id);
             if (!user) {
-                // console.log('❌ User not found for token payload:', payload.id);
+                console.log('❌ User not found for token payload:', payload.id);
                 return res.status(401).json({ message: "User not found" });
             }
 
-            // console.log('✅ User authenticated via token:', user.email);
+            console.log('✅ User authenticated via token:', user.email);
             // Store user in session for future requests
             if (req.session) {
                 req.session.userId = user.id;

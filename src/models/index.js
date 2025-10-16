@@ -5,122 +5,199 @@ module.exports = {
   User: {
     // User model methods
     async findById(id) {
-      return await prisma.user.findUnique({
-        where: { id: parseInt(id) },
-        include: {
-          purchasedPackages: true,
-          campaigns: true,
-          orders: {
-            include: {
-              package: true,
-              transaction: true
+      try {
+        console.log('🔍 User.findById called with ID:', id);
+        const user = await prisma.user.findUnique({
+          where: { id: parseInt(id) },
+          include: {
+            purchasedPackages: true,
+            campaigns: true,
+            orders: {
+              include: {
+                package: true,
+                transaction: true
+              }
             }
           }
-        }
-      });
+        });
+        console.log('👤 User.findById result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not found');
+        return user;
+      } catch (error) {
+        console.error('💥 User.findById error:', error);
+        throw error;
+      }
     },
 
     async findByEmail(email) {
-      return await prisma.user.findUnique({
-        where: { email },
-        include: {
-          purchasedPackages: true,
-          campaigns: true,
-          orders: {
-            include: {
-              package: true,
-              transaction: true
+      try {
+        console.log('🔍 User.findByEmail called with email:', email);
+        const user = await prisma.user.findUnique({
+          where: { email },
+          include: {
+            purchasedPackages: true,
+            campaigns: true,
+            orders: {
+              include: {
+                package: true,
+                transaction: true
+              }
             }
           }
-        }
-      });
+        });
+        console.log('👤 User.findByEmail result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not found');
+        return user;
+      } catch (error) {
+        console.error('💥 User.findByEmail error:', error);
+        throw error;
+      }
     },
 
     async findByUsername(username) {
-      return await prisma.user.findUnique({
-        where: { username },
-        include: {
-          purchasedPackages: true,
-          campaigns: true,
-          orders: {
-            include: {
-              package: true,
-              transaction: true
+      try {
+        console.log('🔍 User.findByUsername called with username:', username);
+        const user = await prisma.user.findUnique({
+          where: { username },
+          include: {
+            purchasedPackages: true,
+            campaigns: true,
+            orders: {
+              include: {
+                package: true,
+                transaction: true
+              }
             }
           }
-        }
-      });
+        });
+        console.log('👤 User.findByUsername result:', user ? `ID: ${user.id}, Username: ${user.username}` : 'Not found');
+        return user;
+      } catch (error) {
+        console.error('💥 User.findByUsername error:', error);
+        throw error;
+      }
     },
 
     async findByPhone(phone) {
-      return await prisma.user.findUnique({
-        where: { phone },
-        include: {
-          purchasedPackages: true,
-          campaigns: true,
-          orders: {
-            include: {
-              package: true,
-              transaction: true
+      try {
+        console.log('🔍 User.findByPhone called with phone:', phone);
+        const user = await prisma.user.findUnique({
+          where: { phone },
+          include: {
+            purchasedPackages: true,
+            campaigns: true,
+            orders: {
+              include: {
+                package: true,
+                transaction: true
+              }
             }
           }
-        }
-      });
+        });
+        console.log('👤 User.findByPhone result:', user ? `ID: ${user.id}, Phone: ${user.phone}` : 'Not found');
+        return user;
+      } catch (error) {
+        console.error('💥 User.findByPhone error:', error);
+        throw error;
+      }
     },
 
     async create(userData) {
-      return await prisma.user.create({
-        data: userData,
-        include: {
-          purchasedPackages: true,
-          campaigns: true,
-          orders: {
-            include: {
-              package: true,
-              transaction: true
+      try {
+        console.log('🔍 User.create called with data:', { 
+          name: userData.name, 
+          email: userData.email, 
+          username: userData.username,
+          phone: userData.phone 
+        });
+        
+        const user = await prisma.user.create({
+          data: userData,
+          include: {
+            purchasedPackages: true,
+            campaigns: true,
+            orders: {
+              include: {
+                package: true,
+                transaction: true
+              }
             }
           }
-        }
-      });
+        });
+        
+        console.log('👤 User.create result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not created');
+        return user;
+      } catch (error) {
+        console.error('💥 User.create error:', error);
+        throw error;
+      }
     },
 
     async update(id, userData) {
-      return await prisma.user.update({
-        where: { id: parseInt(id) },
-        data: userData,
-        include: {
-          purchasedPackages: true,
-          campaigns: true,
-          orders: {
-            include: {
-              package: true,
-              transaction: true
+      try {
+        console.log('🔍 User.update called with ID:', id, 'and data:', userData);
+        
+        const user = await prisma.user.update({
+          where: { id: parseInt(id) },
+          data: userData,
+          include: {
+            purchasedPackages: true,
+            campaigns: true,
+            orders: {
+              include: {
+                package: true,
+                transaction: true
+              }
             }
           }
-        }
-      });
+        });
+        
+        console.log('👤 User.update result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not updated');
+        return user;
+      } catch (error) {
+        console.error('💥 User.update error:', error);
+        throw error;
+      }
     },
 
     async delete(id) {
-      return await prisma.user.delete({
-        where: { id: parseInt(id) }
-      });
+      try {
+        console.log('🔍 User.delete called with ID:', id);
+        
+        const user = await prisma.user.delete({
+          where: { id: parseInt(id) }
+        });
+        
+        console.log('👤 User.delete result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not deleted');
+        return user;
+      } catch (error) {
+        console.error('💥 User.delete error:', error);
+        throw error;
+      }
     },
 
     async findAll(filters = {}) {
-      return await prisma.user.findMany({
-        where: filters,
-        include: {
-          purchasedPackages: true,
-          campaigns: true,
-          orders: {
-            include: {
-              package: true,
-              transaction: true
+      try {
+        console.log('🔍 User.findAll called with filters:', filters);
+        
+        const users = await prisma.user.findMany({
+          where: filters,
+          include: {
+            purchasedPackages: true,
+            campaigns: true,
+            orders: {
+              include: {
+                package: true,
+                transaction: true
+              }
             }
           }
-        }
-      });
+        });
+        
+        console.log('👤 User.findAll result:', users.length, 'users found');
+        return users;
+      } catch (error) {
+        console.error('💥 User.findAll error:', error);
+        throw error;
+      }
     }
   },
 
@@ -537,6 +614,167 @@ module.exports = {
       return await prisma.refreshToken.updateMany({
         where: { userId: parseInt(userId) },
         data: { isRevoked: true }
+      });
+    }
+  },
+
+  Recipient: {
+    async findById(id) {
+      return await prisma.recipient.findUnique({
+        where: { id: parseInt(id) },
+        include: {
+          campaign: true
+        }
+      });
+    },
+
+    async findByCampaign(campaignId) {
+      return await prisma.recipient.findMany({
+        where: { campaignId: parseInt(campaignId) },
+        include: {
+          campaign: true
+        },
+        orderBy: { id: 'asc' }
+      });
+    },
+
+    async findByPhone(phone) {
+      return await prisma.recipient.findMany({
+        where: { phone },
+        include: {
+          campaign: true
+        }
+      });
+    },
+
+    async create(recipientData) {
+      return await prisma.recipient.create({
+        data: recipientData,
+        include: {
+          campaign: true
+        }
+      });
+    },
+
+    async createMany(recipientsData) {
+      return await prisma.recipient.createMany({
+        data: recipientsData
+      });
+    },
+
+    async update(id, recipientData) {
+      return await prisma.recipient.update({
+        where: { id: parseInt(id) },
+        data: recipientData,
+        include: {
+          campaign: true
+        }
+      });
+    },
+
+    async updateMany(campaignId, recipientData) {
+      return await prisma.recipient.updateMany({
+        where: { campaignId: parseInt(campaignId) },
+        data: recipientData
+      });
+    },
+
+    async delete(id) {
+      return await prisma.recipient.delete({
+        where: { id: parseInt(id) }
+      });
+    },
+
+    async deleteByCampaign(campaignId) {
+      return await prisma.recipient.deleteMany({
+        where: { campaignId: parseInt(campaignId) }
+      });
+    },
+
+    async getStats(campaignId) {
+      const stats = await prisma.recipient.groupBy({
+        by: ['status'],
+        where: { campaignId: parseInt(campaignId) },
+        _count: {
+          status: true
+        }
+      });
+
+      return stats.reduce((acc, stat) => {
+        acc[stat.status.toLowerCase()] = stat._count.status;
+        return acc;
+      }, {});
+    },
+
+    async findAll(filters = {}) {
+      return await prisma.recipient.findMany({
+        where: filters,
+        include: {
+          campaign: true
+        },
+        orderBy: { id: 'asc' }
+      });
+    }
+  },
+
+  Attachment: {
+    async findById(id) {
+      return await prisma.attachment.findUnique({
+        where: { id: parseInt(id) },
+        include: {
+          campaign: true
+        }
+      });
+    },
+
+    async findByCampaign(campaignId) {
+      return await prisma.attachment.findMany({
+        where: { campaignId: parseInt(campaignId) },
+        include: {
+          campaign: true
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+    },
+
+    async create(attachmentData) {
+      return await prisma.attachment.create({
+        data: attachmentData,
+        include: {
+          campaign: true
+        }
+      });
+    },
+
+    async update(id, attachmentData) {
+      return await prisma.attachment.update({
+        where: { id: parseInt(id) },
+        data: attachmentData,
+        include: {
+          campaign: true
+        }
+      });
+    },
+
+    async delete(id) {
+      return await prisma.attachment.delete({
+        where: { id: parseInt(id) }
+      });
+    },
+
+    async deleteByCampaign(campaignId) {
+      return await prisma.attachment.deleteMany({
+        where: { campaignId: parseInt(campaignId) }
+      });
+    },
+
+    async findAll(filters = {}) {
+      return await prisma.attachment.findMany({
+        where: filters,
+        include: {
+          campaign: true
+        },
+        orderBy: { createdAt: 'asc' }
       });
     }
   }
