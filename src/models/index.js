@@ -258,10 +258,13 @@ module.exports = {
       // پاک کردن whitespace از status
       if (filters.status) {
         if (Array.isArray(filters.status)) {
+          // اگر array باشه، همه عناصر رو trim کن و به { in: [...] } تبدیل کن
           filters.status = { in: filters.status.map(s => s.trim()) };
-        } else {
+        } else if (typeof filters.status === 'string') {
+          // اگر string باشه، trim کن
           filters.status = filters.status.trim();
         }
+        // اگر object باشه (مثل { in: [...] }), تغییر نمی‌دیم
       }
       
       return await prisma.campaign.findMany({

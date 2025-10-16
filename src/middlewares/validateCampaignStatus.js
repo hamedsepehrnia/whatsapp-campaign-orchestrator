@@ -32,6 +32,7 @@ exports.validateCampaignStatus = (req, res, next) => {
         }
         
         // جایگزین کردن status با مقادیر پاک شده
+        // اگر یک status باشه، string برگردون، وگرنه array
         req.query.status = cleanStatuses.length === 1 ? cleanStatuses[0] : cleanStatuses;
     }
     
