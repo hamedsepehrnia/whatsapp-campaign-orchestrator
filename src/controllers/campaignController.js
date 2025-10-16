@@ -250,7 +250,7 @@ exports.uploadRecipients = [
             }
 
             // Check subscription limits
-            const user = await User.findById(req.user.id).populate('purchasedPackages');
+            const user = await User.findById(req.user.id);
             const totalRecipients = recipients.length;
             
             // Get user's message limit from their package
