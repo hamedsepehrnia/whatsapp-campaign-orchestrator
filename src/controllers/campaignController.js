@@ -2120,6 +2120,24 @@ exports.setCampaignInterval = async (req, res) => {
         // Convert sendType to uppercase for Prisma
         const normalizedSendType = sendType?.toUpperCase() || 'IMMEDIATE';
         
+        // Convert interval to enum for Prisma
+        let normalizedInterval = null;
+        if (interval) {
+            switch (interval.toLowerCase()) {
+                case '5s':
+                    normalizedInterval = 'FIVE_SECONDS';
+                    break;
+                case '10s':
+                    normalizedInterval = 'TEN_SECONDS';
+                    break;
+                case '20s':
+                    normalizedInterval = 'TWENTY_SECONDS';
+                    break;
+                default:
+                    normalizedInterval = 'TEN_SECONDS'; // default
+            }
+        }
+        
         // Update campaign settings
         const updateData = {
             isScheduled: normalizedSendType === 'SCHEDULED',
@@ -2128,7 +2146,7 @@ exports.setCampaignInterval = async (req, res) => {
             sendType: normalizedSendType
         };
         
-        if (interval) updateData.interval = interval;
+        if (normalizedInterval) updateData.interval = normalizedInterval;
         
         await Campaign.update(campaignId, updateData);
 
