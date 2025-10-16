@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticateSession } = require('../middlewares/auth');
+const { validateCampaignStatus } = require('../middlewares/validateCampaignStatus');
 const { 
     checkCampaignStartPermission, 
     getSubscriptionInfo 
@@ -50,8 +51,8 @@ router.get('/subscription', getSubscriptionInfo, require('../controllers/campaig
 
 // Campaign CRUD operations
 router.post('/', createCampaign);
-router.get('/', getMyCampaigns);
-router.get('/search', searchCampaigns);
+router.get('/', validateCampaignStatus, getMyCampaigns);
+router.get('/search', validateCampaignStatus, searchCampaigns);
 router.get('/:campaignId', getCampaignDetails);
 router.delete('/:campaignId', deleteCampaign);
 

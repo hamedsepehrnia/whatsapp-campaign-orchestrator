@@ -255,6 +255,11 @@ module.exports = {
     },
 
     async findAll(filters = {}) {
+      // پاک کردن whitespace از status
+      if (filters.status) {
+        filters.status = filters.status.trim();
+      }
+      
       return await prisma.campaign.findMany({
         where: filters,
         include: {
