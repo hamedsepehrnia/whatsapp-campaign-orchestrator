@@ -2289,3 +2289,69 @@ exports.getSubscriptionInfo = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+// Update campaign title
+exports.updateCampaignTitle = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { title } = req.body;
+        
+        // Validate input
+        if (!title || title.trim().length === 0) {
+            return res.status(400).json({ 
+                message: "Title is required" 
+            });
+        }
+        
+        if (title.trim().length > 100) {
+            return res.status(400).json({ 
+                message: "Title must be less than 100 characters" 
+            });
+        }
+        
+        // Find campaign
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ 
+                message: "Campaign not found" 
+            });
+        }
+        
+        // Check ownership
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ 
+                message: "Access denied" 
+            });
+        }
+        
+        // Check if campaign is not running
+        if (campaign.status === 'RUNNING') {
+            return res.status(400).json({ 
+                message: "Cannot update title while campaign is running" 
+            });
+        }
+        
+        // Update title
+        const updatedCampaign = await Campaign.update(campaignId, {
+            title: title.trim(),
+            updatedAt: new Date()
+        });
+        
+        res.json({
+            message: "Campaign title updated successfully",
+            campaign: {
+                id: updatedCampaign.id,
+                title: updatedCampaign.title,
+                status: updatedCampaign.status
+            }
+        });
+        
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ 
+            message: "Server error", 
+            error: err.message 
+        });
+    }
+};

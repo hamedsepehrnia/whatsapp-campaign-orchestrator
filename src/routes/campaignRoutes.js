@@ -34,7 +34,8 @@ const {
     setCampaignInterval,
     getScheduledCampaigns,
     cancelScheduledCampaign,
-    forceCleanupSession
+    forceCleanupSession,
+    updateCampaignTitle
 } = require('../controllers/campaignController');
 const { downloadExcelTemplate } = require('../controllers/adminController');
 
@@ -58,6 +59,7 @@ router.delete('/:campaignId', deleteCampaign);
 
 // Campaign settings
 router.put('/:campaignId/interval', setCampaignInterval);
+router.put('/:campaignId/title', updateCampaignTitle);
 
 // Scheduled campaigns
 router.get('/scheduled', getScheduledCampaigns);
