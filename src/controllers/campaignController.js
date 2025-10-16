@@ -163,7 +163,7 @@ exports.createCampaign = async (req, res) => {
 
 // Upload recipients from Excel file
 exports.uploadRecipients = [
-    upload.single('recipientsFile'),
+    tempUpload.single('recipientsFile'),
     async (req, res) => {
         try {
             const { campaignId } = req.params;
