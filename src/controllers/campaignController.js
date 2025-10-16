@@ -1535,7 +1535,11 @@ exports.getMyCampaigns = async (req, res) => {
         
         // Filter by status
         if (status) {
-            filter.status = status.trim(); // پاک کردن whitespace
+            if (Array.isArray(status)) {
+                filter.status = { in: status.map(s => s.trim()) };
+            } else {
+                filter.status = status.trim();
+            }
         }
         
         // Filter by title (case-insensitive search)
@@ -1610,7 +1614,11 @@ exports.searchCampaigns = async (req, res) => {
         
         // Filter by status
         if (status) {
-            filter.status = status.trim(); // پاک کردن whitespace
+            if (Array.isArray(status)) {
+                filter.status = { in: status.map(s => s.trim()) };
+            } else {
+                filter.status = status.trim();
+            }
         }
         
         // Filter by title (case-insensitive search)

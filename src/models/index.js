@@ -257,7 +257,11 @@ module.exports = {
     async findAll(filters = {}) {
       // پاک کردن whitespace از status
       if (filters.status) {
-        filters.status = filters.status.trim();
+        if (Array.isArray(filters.status)) {
+          filters.status = { in: filters.status.map(s => s.trim()) };
+        } else {
+          filters.status = filters.status.trim();
+        }
       }
       
       return await prisma.campaign.findMany({
