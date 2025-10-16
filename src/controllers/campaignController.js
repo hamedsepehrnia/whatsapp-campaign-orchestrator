@@ -2063,7 +2063,7 @@ exports.setCampaignInterval = async (req, res) => {
         }
 
         // Validate sendType
-        if (sendType && !['immediate', 'scheduled'].includes(sendType)) {
+        if (sendType && !['immediate', 'scheduled', 'IMMEDIATE', 'SCHEDULED'].includes(sendType)) {
             return res.status(400).json({ 
                 message: "Invalid sendType. Must be 'immediate' or 'scheduled'." 
             });
@@ -2090,7 +2090,7 @@ exports.setCampaignInterval = async (req, res) => {
         }
 
         // Validate scheduled time
-        if (sendType === 'scheduled') {
+        if (sendType === 'scheduled' || sendType === 'SCHEDULED') {
             if (!scheduledAt) {
                 return res.status(400).json({ 
                     message: "scheduledAt is required for scheduled campaigns" 
@@ -2117,12 +2117,15 @@ exports.setCampaignInterval = async (req, res) => {
             }
         }
 
+        // Convert sendType to uppercase for Prisma
+        const normalizedSendType = sendType?.toUpperCase() || 'IMMEDIATE';
+        
         // Update campaign settings
         const updateData = {
-            isScheduled: sendType === 'scheduled',
-            scheduledAt: sendType === 'scheduled' ? new Date(scheduledAt) : null,
+            isScheduled: normalizedSendType === 'SCHEDULED',
+            scheduledAt: normalizedSendType === 'SCHEDULED' ? new Date(scheduledAt) : null,
             timezone: timezone || 'Asia/Tehran',
-            sendType: sendType || 'immediate'
+            sendType: normalizedSendType
         };
         
         if (interval) updateData.interval = interval;
