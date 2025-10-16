@@ -1,4 +1,5 @@
 const { Campaign, User, Recipient, Attachment } = require('../models');
+const prisma = require('../config/prisma');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');
@@ -937,7 +938,7 @@ exports.navigateToStep = async (req, res) => {
         const stepData = stepStatus.json;
         const targetStep = `step${step}`;
         
-        if (!stepData.steps[targetStep]?.canNavigate) {
+        if (!stepData?.steps?.[targetStep]?.canNavigate) {
             return res.status(400).json({ 
                 message: `Cannot navigate to step ${step}. Please complete previous steps first.` 
             });
@@ -948,9 +949,9 @@ exports.navigateToStep = async (req, res) => {
             message: `Navigating to step ${step}`,
             step: {
                 number: step,
-                name: stepData.steps[targetStep].name,
-                completed: stepData.steps[targetStep].completed,
-                optional: stepData.steps[targetStep].optional
+                name: stepData?.steps?.[targetStep]?.name || `Step ${step}`,
+                completed: stepData?.steps?.[targetStep]?.completed || false,
+                optional: stepData?.steps?.[targetStep]?.optional || false
             },
             campaign: {
                 id: campaign.id,
@@ -995,7 +996,7 @@ exports.goBackStep = async (req, res) => {
         }
 
         const stepData = stepStatus.json;
-        const currentStep = stepData.campaign.currentStep;
+        const currentStep = stepData?.campaign?.currentStep || 1;
 
         if (currentStep <= 1) {
             return res.status(400).json({ 
@@ -1560,9 +1561,14 @@ exports.getMyCampaigns = async (req, res) => {
             }
         }
 
-        const campaigns = await Campaign.findAll(filter);
-
-        const total = campaigns.length;
+        const pagination = { 
+            page: parseInt(page) || 1, 
+            limit: parseInt(limit) || 10 
+        };
+        const campaigns = await Campaign.findAll(filter, pagination);
+        
+        // Get total count for pagination
+        const total = await prisma.campaign.count({ where: filter });
 
         res.json({
             campaigns,
@@ -1642,14 +1648,11 @@ exports.searchCampaigns = async (req, res) => {
         const sortConfig = {};
         sortConfig[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-        const campaigns = await Campaign.findAll(filter, {
-            orderBy: sortConfig,
-            take: limit,
-            skip: (page - 1) * limit
-        })
-            .select('title status progress createdAt startedAt completedAt message');
-
-        const total = await Campaign.count(filter);
+        const pagination = { page, limit };
+        const campaigns = await Campaign.findAll(filter, pagination);
+        
+        // Get total count for pagination
+        const total = await prisma.campaign.count({ where: filter });
 
         res.json({
             campaigns,

@@ -254,7 +254,7 @@ module.exports = {
       });
     },
 
-    async findAll(filters = {}) {
+    async findAll(filters = {}, pagination = {}) {
       // پاک کردن whitespace از status
       if (filters.status) {
         if (Array.isArray(filters.status)) {
@@ -267,6 +267,10 @@ module.exports = {
         // اگر object باشه (مثل { in: [...] }), تغییر نمی‌دیم
       }
       
+      const { page = 1, limit = 10, skip, take } = pagination;
+      const pageNum = parseInt(page);
+      const limitNum = parseInt(limit);
+      
       return await prisma.campaign.findMany({
         where: filters,
         include: {
@@ -274,7 +278,9 @@ module.exports = {
           recipients: true,
           attachments: true
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        skip: skip !== undefined ? skip : (pageNum - 1) * limitNum,
+        take: take !== undefined ? take : limitNum
       });
     }
   },
