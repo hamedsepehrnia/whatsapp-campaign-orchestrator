@@ -1545,8 +1545,7 @@ exports.getMyCampaigns = async (req, res) => {
         // Filter by title (case-insensitive search)
         if (title) {
             filter.title = {
-                contains: title,
-                mode: 'insensitive'
+                contains: title
             };
         }
         
@@ -1623,7 +1622,9 @@ exports.searchCampaigns = async (req, res) => {
         
         // Filter by title (case-insensitive search)
         if (title) {
-            filter.title = { $regex: title, $options: 'i' };
+            filter.title = {
+                contains: title.toLowerCase()
+            };
         }
         
         // Filter by date range
