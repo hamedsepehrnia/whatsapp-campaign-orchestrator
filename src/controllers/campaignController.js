@@ -1544,9 +1544,9 @@ exports.getMyCampaigns = async (req, res) => {
         
         // Filter by title (case-insensitive search)
         if (title) {
-            filter.title = {
-                contains: title
-            };
+            // تبدیل به string برای جلوگیری از کرش
+            const titleStr = String(title);
+            filter.title = { contains: titleStr };
         }
         
         // Filter by date range
@@ -1622,9 +1622,9 @@ exports.searchCampaigns = async (req, res) => {
         
         // Filter by title (case-insensitive search)
         if (title) {
-            filter.title = {
-                contains: title.toLowerCase()
-            };
+            // تبدیل به string برای جلوگیری از کرش
+            const titleStr = String(title);
+            filter.title = { contains: titleStr };
         }
         
         // Filter by date range
