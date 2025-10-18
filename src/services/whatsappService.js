@@ -48,13 +48,11 @@ const whatsappService = {
                 const initTimeout = setTimeout(async () => {
                     console.log(`⏰ Timeout reached for campaign ${campaignId}, cleaning up...`);
                     try {
-                        if (client && typeof client.destroy === 'function') {
-                            await client.destroy();
-                        }
+                        // Use cleanupSession which has better error handling
+                        this.cleanupSession(campaignId);
                     } catch (error) {
-                        console.error(`Error destroying client on timeout:`, error);
+                        console.error(`Error during timeout cleanup:`, error);
                     }
-                    this.cleanupSession(campaignId);
                     
                     // Send timeout error via WebSocket
                     await websocketService.sendErrorUpdate(campaignId, 'WhatsApp session initialization timeout', userId);
@@ -75,8 +73,8 @@ const whatsappService = {
                     
                     // Update campaign with QR code
                     await Campaign.update(campaignId, {
-                        whatsappSessionQrCode: qr,
-                        whatsappSessionConnected: false
+                        qrCode: qr,
+                        isConnected: false
                     });
 
                     // Send QR code via WebSocket
@@ -101,8 +99,8 @@ const whatsappService = {
 
                     // Update campaign status
                     await Campaign.update(campaignId, {
-                        whatsappSessionConnected: true,
-                        whatsappSessionLastActivity: new Date(),
+                        isConnected: true,
+                        lastActivity: new Date(),
                         status: 'READY'
                     });
 
@@ -123,7 +121,7 @@ const whatsappService = {
                     
                     // Update campaign status
                     await Campaign.update(campaignId, {
-                        whatsappSessionConnected: false,
+                        isConnected: false,
                         status: 'FAILED'
                     });
 
@@ -147,8 +145,12 @@ const whatsappService = {
                 // Send error via WebSocket
                 await websocketService.sendErrorUpdate(campaignId, 'Failed to initialize WhatsApp client', userId);
                 
-                // Clean up session on error
-                this.cleanupSession(campaignId);
+                // Clean up session on error with better error handling
+                try {
+                    this.cleanupSession(campaignId);
+                } catch (cleanupError) {
+                    console.error(`❌ Error during cleanup for campaign ${campaignId}:`, cleanupError.message);
+                }
             }
         }
     },
@@ -395,8 +397,14 @@ const whatsappService = {
                     clearTimeout(session.timeout);
                 }
                 
+                // Check if client exists and has proper methods before destroying
                 if (session.client && typeof session.client.destroy === 'function') {
-                    session.client.destroy();
+                    // Check if the client's browser is still valid before destroying
+                    if (session.client.pupBrowser && !session.client.pupBrowser.isClosed()) {
+                        session.client.destroy();
+                    } else {
+                        console.log(`⚠️ Browser already closed for campaign ${campaignId}, skipping destroy`);
+                    }
                 }
             } catch (error) {
                 console.error("❌ Error destroying WhatsApp client:", error.message);

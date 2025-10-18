@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp QR Code</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .waiting { background-color: #fff3cd; color: #856404; }
+        #qrCode {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            word-break: break-all;
+            font-family: monospace;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 WhatsApp QR Code Generator</h1>
+        
+        <div id="status" class="status disconnected">
+            🔌 در حال اتصال به WebSocket...
+        </div>
+        
+        <div>
+            <label for="campaignId">Campaign ID:</label>
+            <input type="number" id="campaignId" value="1" style="margin: 0 10px; padding: 5px;">
+            
+            <label for="userId">User ID:</label>
+            <input type="number" id="userId" value="4" style="margin: 0 10px; padding: 5px;">
+            
+            <button onclick="connect()">🔌 اتصال</button>
+            <button onclick="disconnect()">❌ قطع اتصال</button>
+        </div>
+        
+        <div id="qrCode" style="display: none;">
+            <h3>📱 QR Code:</h3>
+            <div id="qrData"></div>
+            <p>💡 این QR کد را با WhatsApp موبایل خود اسکن کنید</p>
+        </div>
+        
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let campaignId = 1;
+        let userId = 4;
+
+        function connect() {
+            campaignId = document.getElementById('campaignId').value;
+            userId = document.getElementById('userId').value;
+            
+            const url = `ws://localhost:3000/ws/campaigns?campaignId=${campaignId}&userId=${userId}`;
+            
+            updateStatus('🔌 در حال اتصال...', 'waiting');
+            
+            ws = new WebSocket(url);
+            
+            ws.onopen = function() {
+                updateStatus('✅ متصل شد! در انتظار QR کد...', 'connected');
+                addMessage('🔌 WebSocket متصل شد');
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                addMessage(`📨 دریافت: ${data.type}`);
+                
+                if (data.type === 'qr_code') {
+                    showQRCode(data.qrCode);
+                    updateStatus('📱 QR کد دریافت شد!', 'connected');
+                } else if (data.type === 'status_update') {
+                    addMessage(`📊 وضعیت: ${data.message}`);
+                } else if (data.type === 'error') {
+                    addMessage(`❌ خطا: ${data.message}`);
+                }
+            };
+            
+            ws.onclose = function() {
+                updateStatus('❌ اتصال قطع شد', 'disconnected');
+                addMessage('🔌 WebSocket قطع شد');
+            };
+            
+            ws.onerror = function(error) {
+                updateStatus('❌ خطا در اتصال', 'disconnected');
+                addMessage(`❌ خطا: ${error}`);
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function updateStatus(message, className) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${className}`;
+        }
+
+        function addMessage(message) {
+            const messages = document.getElementById('messages');
+            const time = new Date().toLocaleTimeString('fa-IR');
+            messages.innerHTML += `<div>${time}: ${message}</div>`;
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function showQRCode(qrData) {
+            const qrDiv = document.getElementById('qrCode');
+            const qrDataDiv = document.getElementById('qrData');
+            
+            qrDataDiv.textContent = qrData;
+            qrDiv.style.display = 'block';
+        }
+
+        // اتصال خودکار
+        window.onload = function() {
+            connect();
+        };
+    </script>
+</body>
+</html>

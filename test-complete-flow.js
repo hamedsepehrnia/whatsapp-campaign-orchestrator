@@ -1,120 +1,108 @@
-// تست کامل فلوی لاگین/لاگ‌اوت/ثبت‌نام
 const axios = require('axios');
+const WebSocket = require('ws');
 
 const BASE_URL = 'http://localhost:3000';
-const API_PREFIX = '/api/user';
 
 async function testCompleteFlow() {
-    console.log('🚀 شروع تست کامل...\n');
-    
-    const testUser = {
-        name: 'تست کاربر',
-        username: 'testuser123',
-        email: 'test@example.com',
-        password: '123456',
-        phone: '09123456788'
-    };
+    let ws;
     
     try {
-        // 1. ثبت‌نام اولیه
-        console.log('1️⃣ ثبت‌نام کاربر جدید...');
-        try {
-            const registerRes = await axios.post(`${BASE_URL}${API_PREFIX}/register-simple`, testUser);
-            console.log('✅ ثبت‌نام موفق:', registerRes.data);
-        } catch (err) {
-            if (err.response?.data?.message === 'Email already exists' || 
-                err.response?.data?.message === 'Username already exists') {
-                console.log('⚠️ کاربر قبلاً ثبت‌نام کرده');
-            } else {
-                throw err;
+        console.log('🚀 Starting Complete WhatsApp Flow Test...\n');
+
+        // 1. Login
+        console.log('1️⃣ Logging in...');
+        const loginResponse = await axios.post(`${BASE_URL}/api/user/login`, {
+            email: 'ali@example.com',
+            password: 'Passw0rd123!'
+        });
+
+        const token = loginResponse.data.token;
+        const userId = loginResponse.data.user.id;
+        console.log('✅ Login successful, User ID:', userId);
+
+        // 2. Create Campaign
+        console.log('\n2️⃣ Creating campaign...');
+        const campaignResponse = await axios.post(`${BASE_URL}/api/campaigns`, {
+            title: 'Complete Test Campaign',
+            message: 'Hello from test campaign!',
+            interval: '10s'
+        }, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const campaignId = campaignResponse.data.campaign.id;
+        console.log(`✅ Campaign created: ${campaignId}`);
+
+        // 3. Connect to WebSocket
+        console.log('\n3️⃣ Connecting to WebSocket...');
+        ws = new WebSocket(`ws://localhost:3000/ws/campaigns?campaignId=${campaignId}&userId=${userId}`);
+        
+        ws.on('open', () => {
+            console.log('✅ WebSocket connected');
+        });
+        
+        ws.on('message', (data) => {
+            const parsed = JSON.parse(data);
+            console.log(`📨 WebSocket message: ${parsed.type}`);
+            
+            if (parsed.type === 'qr_code') {
+                console.log('🎯 QR CODE RECEIVED!');
+                console.log('QR Code:', parsed.data.qrCode);
+                console.log('💡 Scan this QR code with WhatsApp');
             }
-        }
-        
-        console.log('\n' + '='.repeat(50) + '\n');
-        
-        // 2. لاگین
-        console.log('2️⃣ لاگین کاربر...');
-        const loginRes = await axios.post(`${BASE_URL}${API_PREFIX}/login`, {
-            email: testUser.email,
-            password: testUser.password
         });
-        console.log('✅ لاگین موفق:', {
-            message: loginRes.data.message,
-            userId: loginRes.data.user.id,
-            email: loginRes.data.user.email
+
+        // Wait a bit for WebSocket connection
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // 4. Generate QR Code
+        console.log('\n4️⃣ Generating QR Code...');
+        const qrResponse = await axios.post(`${BASE_URL}/api/campaigns/${campaignId}/qr-code`, {}, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
-        
-        const sessionCookie = loginRes.headers['set-cookie'];
-        console.log('🍪 Session Cookie:', sessionCookie ? 'دریافت شد' : 'دریافت نشد');
-        
-        console.log('\n' + '='.repeat(50) + '\n');
-        
-        // 3. لاگ‌اوت
-        console.log('3️⃣ لاگ‌اوت کاربر...');
-        const logoutRes = await axios.post(`${BASE_URL}${API_PREFIX}/logout`, {}, {
-            headers: {
-                Cookie: sessionCookie
-            }
+
+        console.log('✅ QR Code generation initiated');
+        console.log('📱 Session ID:', qrResponse.data.sessionId);
+
+        // 5. Wait for QR code via WebSocket
+        console.log('\n5️⃣ Waiting for QR code via WebSocket...');
+        console.log('⏳ Please wait for QR code to appear...');
+
+        // Keep running to receive WebSocket messages
+        await new Promise(resolve => {
+            const timeout = setTimeout(() => {
+                console.log('⏰ Timeout reached, stopping test');
+                resolve();
+            }, 30000); // 30 seconds timeout
+
+            ws.on('message', (data) => {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'qr_code') {
+                    clearTimeout(timeout);
+                    console.log('🎯 QR CODE RECEIVED VIA WEBSOCKET!');
+                    console.log('QR Code:', parsed.data.qrCode);
+                    resolve();
+                }
+            });
         });
-        console.log('✅ لاگ‌اوت موفق:', logoutRes.data);
-        
-        console.log('\n' + '='.repeat(50) + '\n');
-        
-        // 4. تلاش برای لاگین مجدد
-        console.log('4️⃣ تلاش برای لاگین مجدد...');
-        try {
-            const login2Res = await axios.post(`${BASE_URL}${API_PREFIX}/login`, {
-                email: testUser.email,
-                password: testUser.password
-            });
-            console.log('✅ لاگین مجدد موفق:', {
-                message: login2Res.data.message,
-                userId: login2Res.data.user.id,
-                email: login2Res.data.user.email
-            });
-        } catch (err) {
-            console.log('❌ لاگین مجدد ناموفق:', err.response?.data);
-        }
-        
-        console.log('\n' + '='.repeat(50) + '\n');
-        
-        // 5. تلاش برای ثبت‌نام مجدد با همان اطلاعات
-        console.log('5️⃣ تلاش برای ثبت‌نام مجدد با همان اطلاعات...');
-        try {
-            const register2Res = await axios.post(`${BASE_URL}${API_PREFIX}/register-simple`, testUser);
-            console.log('⚠️ ثبت‌نام مجدد موفق شد (این باید خطا بده!):', register2Res.data);
-        } catch (err) {
-            console.log('✅ ثبت‌نام مجدد خطا داد (صحیح):', err.response?.data);
-        }
-        
-        console.log('\n' + '='.repeat(50) + '\n');
-        
-        // 6. تلاش برای ثبت‌نام با ایمیل یکسان و شماره متفاوت
-        console.log('6️⃣ تلاش برای ثبت‌نام با ایمیل یکسان و شماره متفاوت...');
-        try {
-            const register3Res = await axios.post(`${BASE_URL}${API_PREFIX}/register-simple`, {
-                ...testUser,
-                phone: '09123456789', // شماره متفاوت
-                username: 'testuser456' // نام کاربری متفاوت
-            });
-            console.log('⚠️ ثبت‌نام با ایمیل تکراری موفق شد (این باید خطا بده!):', register3Res.data);
-        } catch (err) {
-            console.log('✅ ثبت‌نام با ایمیل تکراری خطا داد (صحیح):', err.response?.data);
-        }
-        
+
+        // 6. Check Connection Status
+        console.log('\n6️⃣ Checking connection status...');
+        const connectionResponse = await axios.get(`${BASE_URL}/api/campaigns/${campaignId}/connection`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        console.log('📊 Connection status:', connectionResponse.data);
+
+        console.log('\n🎉 Complete flow test finished!');
+
     } catch (error) {
-        console.error('💥 خطا در تست:', error.message);
-        if (error.response) {
-            console.error('📋 پاسخ سرور:', error.response.data);
+        console.error('❌ Error:', error.response?.data || error.message);
+    } finally {
+        if (ws) {
+            ws.close();
         }
     }
 }
 
-// اجرای تست
-testCompleteFlow().then(() => {
-    console.log('\n✅ تست کامل شد');
-    process.exit(0);
-}).catch(error => {
-    console.error('💥 خطا:', error);
-    process.exit(1);
-});
+testCompleteFlow();
