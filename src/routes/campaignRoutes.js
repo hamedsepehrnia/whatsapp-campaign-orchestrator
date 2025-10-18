@@ -27,7 +27,9 @@ const {
     getMyCampaigns,
     searchCampaigns,
     getCampaignDetails,
+    getCampaignRecipients,
     downloadReport,
+    downloadMultipleReports,
     pauseCampaign,
     resumeCampaign,
     deleteCampaign,
@@ -99,5 +101,9 @@ router.post('/:campaignId/resume', resumeCampaign);
 
 // Progress and reporting
 router.get('/:campaignId/report/download', downloadReport);
+router.post('/reports/download-multiple', downloadMultipleReports);
+
+// Recipients management
+router.get('/:campaignId/recipients', getCampaignRecipients);
 
 module.exports = router;

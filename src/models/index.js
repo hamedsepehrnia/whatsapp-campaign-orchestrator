@@ -646,13 +646,24 @@ module.exports = {
       });
     },
 
-    async findByCampaign(campaignId) {
+    async findByCampaign(campaignId, sortBy = 'id', sortOrder = 'asc') {
+      // Sort options
+      const sortOptions = {
+        'id': { id: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'phone': { phone: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'name': { name: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'status': { status: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'sentAt': { sentAt: sortOrder === 'desc' ? 'desc' : 'asc' }
+      };
+
+      const orderBy = sortOptions[sortBy] || sortOptions['id'];
+
       return await prisma.recipient.findMany({
         where: { campaignId: parseInt(campaignId) },
         include: {
           campaign: true
         },
-        orderBy: { id: 'asc' }
+        orderBy
       });
     },
 

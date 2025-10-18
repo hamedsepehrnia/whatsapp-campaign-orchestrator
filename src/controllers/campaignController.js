@@ -1529,7 +1529,9 @@ exports.getMyCampaigns = async (req, res) => {
             startDate, 
             endDate, 
             page = 1, 
-            limit = 10 
+            limit = 10,
+            sortBy = 'createdAt',
+            sortOrder = 'desc'
         } = req.query;
         
         const filter = { userId: parseInt(req.user.id) };
@@ -1561,11 +1563,23 @@ exports.getMyCampaigns = async (req, res) => {
             }
         }
 
+        // Sort options
+        const sortOptions = {
+            'createdAt': { createdAt: sortOrder === 'desc' ? 'desc' : 'asc' },
+            'updatedAt': { updatedAt: sortOrder === 'desc' ? 'desc' : 'asc' },
+            'title': { title: sortOrder === 'desc' ? 'desc' : 'asc' },
+            'status': { status: sortOrder === 'desc' ? 'desc' : 'asc' },
+            'totalRecipients': { totalRecipients: sortOrder === 'desc' ? 'desc' : 'asc' },
+            'sentCount': { sentCount: sortOrder === 'desc' ? 'desc' : 'asc' }
+        };
+
+        const orderBy = sortOptions[sortBy] || sortOptions['createdAt'];
+
         const pagination = { 
             page: parseInt(page) || 1, 
             limit: parseInt(limit) || 10 
         };
-        const campaigns = await Campaign.findAll(filter, pagination);
+        const campaigns = await Campaign.findAll(filter, pagination, orderBy);
         
         // Get total count for pagination
         const total = await prisma.campaign.count({ where: filter });
@@ -1583,6 +1597,10 @@ exports.getMyCampaigns = async (req, res) => {
                 title: title || null,
                 startDate: startDate || null,
                 endDate: endDate || null
+            },
+            sorting: {
+                sortBy: sortBy || 'createdAt',
+                sortOrder: sortOrder || 'desc'
             }
         });
 
@@ -1735,7 +1753,8 @@ exports.getCampaignDetails = async (req, res) => {
 
         // Include recipients if requested
         if (includes.includes('recipients')) {
-            campaignData.recipients = await Recipient.findByCampaign(campaignId);
+            const { recipientSortBy = 'id', recipientSortOrder = 'asc' } = req.query;
+            campaignData.recipients = await Recipient.findByCampaign(campaignId, recipientSortBy, recipientSortOrder);
         }
 
         // Include attachments if requested
@@ -1772,6 +1791,75 @@ exports.getCampaignDetails = async (req, res) => {
 
         res.json({
             campaign: campaignData
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Get campaign recipients with sorting
+exports.getCampaignRecipients = async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { 
+            sortBy = 'id', 
+            sortOrder = 'asc',
+            status,
+            page = 1,
+            limit = 50
+        } = req.query;
+        
+        const campaign = await Campaign.findById(campaignId);
+        
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found" });
+        }
+
+        // Check if user owns this campaign
+        if (campaign.userId !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
+
+        // Build filter for recipients
+        const filter = { campaignId: parseInt(campaignId) };
+        if (status) {
+            filter.status = status;
+        }
+
+        // Get recipients with sorting
+        const recipients = await Recipient.findByCampaign(campaignId, sortBy, sortOrder);
+        
+        // Apply status filter if provided
+        let filteredRecipients = recipients;
+        if (status) {
+            filteredRecipients = recipients.filter(r => r.status === status);
+        }
+
+        // Apply pagination
+        const startIndex = (parseInt(page) - 1) * parseInt(limit);
+        const endIndex = startIndex + parseInt(limit);
+        const paginatedRecipients = filteredRecipients.slice(startIndex, endIndex);
+
+        // Get total count
+        const total = filteredRecipients.length;
+
+        res.json({
+            recipients: paginatedRecipients,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / parseInt(limit))
+            },
+            sorting: {
+                sortBy: sortBy || 'id',
+                sortOrder: sortOrder || 'asc'
+            },
+            filters: {
+                status: status || null
+            }
         });
 
     } catch (err) {
@@ -1910,6 +1998,138 @@ exports.downloadReport = async (req, res) => {
         // Set response headers for Excel download
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="campaign-report-${campaignId}-${new Date().toISOString().split('T')[0]}.xlsx"`);
+        
+        // Write Excel file to response
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        res.send(buffer);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Download multiple campaigns report as Excel
+exports.downloadMultipleReports = async (req, res) => {
+    try {
+        const { campaignIds } = req.body;
+        const { sortBy = 'createdAt', sortOrder = 'desc', recipientSortBy = 'phone', recipientSortOrder = 'asc' } = req.query;
+        
+        if (!campaignIds || !Array.isArray(campaignIds) || campaignIds.length === 0) {
+            return res.status(400).json({ message: "Campaign IDs array is required" });
+        }
+
+        if (campaignIds.length > 10) {
+            return res.status(400).json({ message: "Maximum 10 campaigns can be selected at once" });
+        }
+
+        // Find all campaigns that belong to the user
+        const campaigns = await Campaign.find({
+            _id: { $in: campaignIds },
+            userId: req.user.id
+        });
+
+        if (campaigns.length === 0) {
+            return res.status(404).json({ message: "No campaigns found" });
+        }
+
+        // Check if all campaigns are accessible for report generation
+        const invalidCampaigns = campaigns.filter(campaign => 
+            !['COMPLETED', 'RUNNING', 'PAUSED'].includes(campaign.status)
+        );
+
+        if (invalidCampaigns.length > 0) {
+            return res.status(400).json({ 
+                message: "Some campaigns are not available for report generation",
+                invalidCampaigns: invalidCampaigns.map(c => ({ id: c.id, status: c.status }))
+            });
+        }
+
+        // Sort campaigns based on sortBy parameter
+        const sortOptions = {
+            'createdAt': (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+            'updatedAt': (a, b) => new Date(a.updatedAt) - new Date(b.updatedAt),
+            'title': (a, b) => (a.title || '').localeCompare(b.title || ''),
+            'status': (a, b) => a.status.localeCompare(b.status),
+            'totalRecipients': (a, b) => a.totalRecipients - b.totalRecipients,
+            'sentCount': (a, b) => a.sentCount - b.sentCount
+        };
+
+        const sortFunction = sortOptions[sortBy] || sortOptions['createdAt'];
+        campaigns.sort((a, b) => {
+            const result = sortFunction(a, b);
+            return sortOrder === 'desc' ? -result : result;
+        });
+
+        // Generate Excel report
+        const xlsx = require('xlsx');
+        const wb = xlsx.utils.book_new();
+        
+        // Combined summary sheet
+        const summaryData = campaigns.map(campaign => ({
+            'Campaign ID': campaign.id,
+            'Title': campaign.title || 'N/A',
+            'Status': campaign.status,
+            'Total Messages': campaign.totalRecipients,
+            'Sent': campaign.sentCount,
+            'Failed': campaign.failedCount,
+            'Delivered': campaign.deliveredCount,
+            'Remaining': campaign.totalRecipients - campaign.sentCount - campaign.failedCount,
+            'Delivery Rate': campaign.totalRecipients > 0 ? `${Math.round((campaign.sentCount / campaign.totalRecipients) * 100)}%` : '0%',
+            'Started At': campaign.startedAt ? new Date(campaign.startedAt).toLocaleString('fa-IR') : 'N/A',
+            'Completed At': campaign.completedAt ? new Date(campaign.completedAt).toLocaleString('fa-IR') : 'N/A',
+            'Created At': new Date(campaign.createdAt).toLocaleString('fa-IR')
+        }));
+        
+        const summaryWs = xlsx.utils.json_to_sheet(summaryData);
+        xlsx.utils.book_append_sheet(wb, summaryWs, "Campaigns Summary");
+        
+        // Combined recipients details sheet
+        let allRecipients = [];
+        campaigns.forEach(campaign => {
+            const campaignRecipients = campaign.recipients.map(recipient => ({
+                'Campaign ID': campaign.id,
+                'Campaign Title': campaign.title || 'N/A',
+                'Phone': recipient.phone,
+                'Name': recipient.name || 'N/A',
+                'Status': recipient.status,
+                'Sent At': recipient.sentAt ? new Date(recipient.sentAt).toLocaleString('fa-IR') : 'N/A',
+                'Error': recipient.error || 'N/A'
+            }));
+            allRecipients = allRecipients.concat(campaignRecipients);
+        });
+
+        // Sort recipients based on recipientSortBy parameter
+        const recipientSortOptions = {
+            'phone': (a, b) => a.Phone.localeCompare(b.Phone),
+            'name': (a, b) => (a.Name || '').localeCompare(b.Name || ''),
+            'status': (a, b) => a.Status.localeCompare(b.Status),
+            'sentAt': (a, b) => new Date(a['Sent At']) - new Date(b['Sent At']),
+            'campaignId': (a, b) => a['Campaign ID'].localeCompare(b['Campaign ID'])
+        };
+
+        const recipientSortFunction = recipientSortOptions[recipientSortBy] || recipientSortOptions['phone'];
+        allRecipients.sort((a, b) => {
+            const result = recipientSortFunction(a, b);
+            return recipientSortOrder === 'desc' ? -result : result;
+        });
+        
+        const recipientsWs = xlsx.utils.json_to_sheet(allRecipients);
+        xlsx.utils.book_append_sheet(wb, recipientsWs, "All Recipients");
+        
+        // Individual campaign messages sheet
+        const messagesData = campaigns.map(campaign => ({
+            'Campaign ID': campaign.id,
+            'Campaign Title': campaign.title || 'N/A',
+            'Campaign Message': campaign.message
+        }));
+        
+        const messagesWs = xlsx.utils.json_to_sheet(messagesData);
+        xlsx.utils.book_append_sheet(wb, messagesWs, "Campaign Messages");
+        
+        // Set response headers for Excel download
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="multiple-campaigns-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
         
         // Write Excel file to response
         const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });

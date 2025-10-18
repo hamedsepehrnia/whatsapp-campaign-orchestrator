@@ -515,6 +515,79 @@
               "path": ["api", "campaigns", "{{campaign_id}}", "report", "download"]
             }
           }
+        },
+        {
+          "name": "Download Multiple Reports (Excel)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaignIds\": [\"{{campaign_id}}\", \"{{campaign_id2}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/reports/download-multiple?sortBy=createdAt&sortOrder=desc&recipientSortBy=phone&recipientSortOrder=asc",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "reports", "download-multiple"],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "createdAt"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc"
+                },
+                {
+                  "key": "recipientSortBy",
+                  "value": "phone"
+                },
+                {
+                  "key": "recipientSortOrder",
+                  "value": "asc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Campaign Recipients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/recipients?sortBy=phone&sortOrder=asc&status=SENT&page=1&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["api", "campaigns", "{{campaign_id}}", "recipients"],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "phone"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "asc"
+                },
+                {
+                  "key": "status",
+                  "value": "SENT"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
         }
       ]
     },

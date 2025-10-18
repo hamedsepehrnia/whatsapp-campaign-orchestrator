@@ -53,22 +53,20 @@ exports.checkSubscriptionLimit = async (req, res, next) => {
         }
 
         // Check current usage (count of messages sent in active campaigns)
-        const currentUsage = await Campaign.aggregate([
-            {
-                $match: {
-                    userId: req.user.id,
-                    status: { $in: ['RUNNING', 'COMPLETED'] }
-                }
+        const prisma = require('../config/prisma');
+        const campaigns = await prisma.campaign.findMany({
+            where: {
+                userId: req.user.id,
+                status: { in: ['RUNNING', 'COMPLETED'] }
             },
-            {
-                $group: {
-                    _id: null,
-                    totalSent: { $sum: '$progress.sent' }
-                }
+            select: {
+                sentCount: true
             }
-        ]);
+        });
 
-        const usedMessages = currentUsage.length > 0 ? currentUsage[0].totalSent : 0;
+        const usedMessages = campaigns.reduce((total, campaign) => {
+            return total + (campaign.sentCount || 0);
+        }, 0);
         const remainingQuota = totalMessageLimit - usedMessages;
 
         if (recipientsCount > remainingQuota) {
@@ -145,7 +143,15 @@ exports.checkCampaignStartPermission = async (req, res, next) => {
 // Middleware to get user's subscription info
 exports.getSubscriptionInfo = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user.id);
+        const prisma = require('../config/prisma');
+        
+        // Get user with purchased packages
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            include: {
+                purchasedPackages: true
+            }
+        });
         
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -159,29 +165,27 @@ exports.getSubscriptionInfo = async (req, res, next) => {
             }, 0);
         }
 
-        // Get current usage
-        const currentUsage = await Campaign.aggregate([
-            {
-                $match: {
-                    userId: req.user.id,
-                    status: { $in: ['RUNNING', 'COMPLETED'] }
-                }
+        // Get current usage using Prisma
+        const campaigns = await prisma.campaign.findMany({
+            where: {
+                userId: req.user.id,
+                status: { in: ['RUNNING', 'COMPLETED'] }
             },
-            {
-                $group: {
-                    _id: null,
-                    totalSent: { $sum: '$progress.sent' }
-                }
+            select: {
+                sentCount: true
             }
-        ]);
+        });
 
-        const usedMessages = currentUsage.length > 0 ? currentUsage[0].totalSent : 0;
+        const usedMessages = campaigns.reduce((total, campaign) => {
+            return total + (campaign.sentCount || 0);
+        }, 0);
+        
         const remainingQuota = totalMessageLimit - usedMessages;
 
         // Add subscription info to request
         req.subscriptionInfo = {
-            isActive: user.subscription.isActive && new Date() <= user.subscription.expiresAt,
-            expiresAt: user.subscription.expiresAt,
+            isActive: user.subscriptionActive && new Date() <= user.subscriptionExpiresAt,
+            expiresAt: user.subscriptionExpiresAt,
             totalLimit: totalMessageLimit,
             used: usedMessages,
             remaining: remainingQuota,

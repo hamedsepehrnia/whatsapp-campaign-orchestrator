@@ -192,6 +192,8 @@ GET /api/campaigns
 - `endDate`: تاریخ پایان
 - `page`: شماره صفحه (پیش‌فرض: 1)
 - `limit`: تعداد در هر صفحه (پیش‌فرض: 10)
+- `sortBy`: مرتب‌سازی (createdAt, updatedAt, title, status, totalRecipients, sentCount)
+- `sortOrder`: ترتیب مرتب‌سازی (asc, desc)
 
 ### 3. جزئیات کمپین
 ```http
@@ -200,6 +202,8 @@ GET /api/campaigns/:campaignId
 
 **Query Parameters:**
 - `include`: شامل کردن اطلاعات اضافی (progress, recipients, attachments, report)
+- `recipientSortBy`: مرتب‌سازی مخاطبین (id, phone, name, status, sentAt)
+- `recipientSortOrder`: ترتیب مرتب‌سازی مخاطبین (asc, desc)
 
 ### 4. آپلود لیست مخاطبین
 ```http
@@ -309,6 +313,58 @@ GET /api/campaigns/:campaignId/report/download
 ```
 
 **Response:** فایل Excel
+
+### 17. دانلود گزارش چندین کمپین
+```http
+POST /api/campaigns/reports/download-multiple
+```
+
+**Request Body:**
+```json
+{
+  "campaignIds": ["campaign1", "campaign2", "campaign3"]
+}
+```
+
+**Query Parameters:**
+- `sortBy`: مرتب‌سازی کمپین‌ها (createdAt, updatedAt, title, status, totalRecipients, sentCount)
+- `sortOrder`: ترتیب مرتب‌سازی (asc, desc)
+- `recipientSortBy`: مرتب‌سازی مخاطبین (phone, name, status, sentAt, campaignId)
+- `recipientSortOrder`: ترتیب مرتب‌سازی مخاطبین (asc, desc)
+
+**Response:** فایل Excel با چندین شیت
+
+### 18. لیست مخاطبین کمپین
+```http
+GET /api/campaigns/:campaignId/recipients
+```
+
+**Query Parameters:**
+- `sortBy`: مرتب‌سازی (id, phone, name, status, sentAt)
+- `sortOrder`: ترتیب مرتب‌سازی (asc, desc)
+- `status`: فیلتر بر اساس وضعیت (PENDING, SENT, DELIVERED, FAILED)
+- `page`: شماره صفحه (پیش‌فرض: 1)
+- `limit`: تعداد در هر صفحه (پیش‌فرض: 50)
+
+**Response:**
+```json
+{
+  "recipients": [...],
+  "pagination": {
+    "page": 1,
+    "limit": 50,
+    "total": 100,
+    "pages": 2
+  },
+  "sorting": {
+    "sortBy": "phone",
+    "sortOrder": "asc"
+  },
+  "filters": {
+    "status": null
+  }
+}
+```
 
 ## 📦 API های پکیج‌ها
 
