@@ -46,6 +46,34 @@ const router = express.Router();
 // Public route for downloading Excel template (no authentication required)
 router.get('/excel-template/download', downloadExcelTemplate);
 
+// Public route for testing QR code generation (no authentication required)
+router.post('/test-qr-code', async (req, res) => {
+    try {
+        const { campaignId, userId } = req.body;
+        
+        if (!campaignId || !userId) {
+            return res.status(400).json({ 
+                message: "Campaign ID and User ID are required" 
+            });
+        }
+
+        // Generate unique session ID
+        const sessionId = require('uuid').v4();
+        
+        res.json({
+            message: "QR code generation initiated",
+            sessionId: sessionId,
+            campaignId: campaignId,
+            userId: userId,
+            instructions: "WhatsApp session is being prepared. QR code will be sent via WebSocket."
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+});
+
 // All other routes require JWT authentication
 router.use(authenticateSession);
 

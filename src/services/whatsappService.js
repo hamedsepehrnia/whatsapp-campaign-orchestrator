@@ -15,6 +15,38 @@ const whatsappService = {
         console.log('📱 WhatsApp service initialized with WebSocket support');
     },
 
+    // Convert raw QR code to WhatsApp Web URL format
+    convertQRToWhatsAppURL(qrCode) {
+        // If QR code already contains WhatsApp URL, return as is
+        if (qrCode.includes('wa.me') || qrCode.includes('whatsapp.com')) {
+            return qrCode;
+        }
+        
+        // Return raw QR code directly - no URL conversion needed
+        // The whatsapp-web.js library provides the raw QR data that should be used directly
+        return qrCode;
+    },
+
+    // Generate QR code image from raw data
+    async generateQRCodeImage(qrData) {
+        try {
+            const QRCode = require('qrcode');
+            const qrImage = await QRCode.toDataURL(qrData, {
+                errorCorrectionLevel: 'M',
+                margin: 1,
+                width: 300,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            });
+            return qrImage;
+        } catch (error) {
+            console.error('Error generating QR code image:', error);
+            return null;
+        }
+    },
+
     // Get active sessions for a user
     async getActiveUserSessions(userId) {
         let count = 0;
@@ -71,14 +103,24 @@ const whatsappService = {
                         session.timeout = null;
                     }
                     
+                    // Convert QR code to WhatsApp Web URL format
+                    const whatsappQRUrl = this.convertQRToWhatsAppURL(qr);
+                    
+                    // Generate QR code image data
+                    const qrCodeData = {
+                        raw: qr,
+                        url: whatsappQRUrl,
+                        image: await this.generateQRCodeImage(qr)
+                    };
+                    
                     // Update campaign with QR code
                     await Campaign.update(campaignId, {
-                        qrCode: qr,
+                        qrCode: JSON.stringify(qrCodeData),
                         isConnected: false
                     });
 
                     // Send QR code via WebSocket
-                    await websocketService.sendQRCode(campaignId, qr, userId);
+                    await websocketService.sendQRCode(campaignId, qrCodeData, userId);
                 });
 
                 // Client ready event

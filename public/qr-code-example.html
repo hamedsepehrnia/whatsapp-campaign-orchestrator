@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp QR Code Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .qr-code-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .qr-code-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .qr-code-image {
+            max-width: 300px;
+            height: auto;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .qr-instructions {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: right;
+            max-width: 400px;
+            margin: 20px auto;
+        }
+        
+        .qr-instructions h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+        
+        .qr-instructions ol {
+            margin: 0;
+            padding-right: 20px;
+        }
+        
+        .qr-instructions li {
+            margin: 5px 0;
+            color: #424242;
+        }
+        
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.waiting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .qr-url {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            max-width: 300px;
+            margin: 10px auto;
+        }
+        
+        .qr-code-fallback {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .qr-code-fallback h3 {
+            color: #007bff;
+            margin-bottom: 15px;
+        }
+        
+        .qr-instruction {
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 WhatsApp QR Code Example</h1>
+        
+        <div id="qr-container" class="qr-code-container">
+            <!-- QR Code اینجا نمایش داده می‌شود -->
+        </div>
+        
+        <div class="controls">
+            <button id="generate-btn" class="btn">تولید QR Code</button>
+            <button id="test-btn" class="btn btn-secondary">تست QR Code</button>
+            <button id="clear-btn" class="btn btn-secondary">پاکسازی</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        // QR Code Helper Functions
+        class QRCodeHelper {
+            constructor() {
+                this.qrCode = null;
+                this.isGenerating = false;
+            }
+
+            // Convert raw QR code to WhatsApp Web URL format
+            convertQRToWhatsAppURL(qrCode) {
+                // If QR code already contains WhatsApp URL, return as is
+                if (qrCode.includes('wa.me') || qrCode.includes('whatsapp.com')) {
+                    return qrCode;
+                }
+                
+                // Convert raw QR code to WhatsApp Web URL
+                return `https://wa.me/settings/linked_devices#${qrCode}`;
+            }
+
+            // Generate QR Code image from WhatsApp URL
+            async generateQRCodeImage(whatsappURL, containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) {
+                    console.error('QR Code container not found');
+                    return;
+                }
+
+                // Clear previous content
+                container.innerHTML = '';
+
+                // Check if QRCode library is available
+                if (typeof QRCode !== 'undefined') {
+                    // Generate QR code using QRCode library
+                    new QRCode(container, {
+                        text: whatsappURL,
+                        width: 300,
+                        height: 300,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                } else {
+                    // Fallback: display URL as text
+                    container.innerHTML = `
+                        <div class="qr-code-fallback">
+                            <h3>📱 WhatsApp QR Code</h3>
+                            <div class="qr-url">
+                                <p><strong>URL:</strong></p>
+                                <code>${whatsappURL}</code>
+                            </div>
+                            <p class="qr-instruction">این URL را در مرورگر باز کنید یا QR Code را اسکن کنید</p>
+                        </div>
+                    `;
+                }
+            }
+
+            // Display QR Code with proper formatting
+            async displayQRCode(qrData, containerId) {
+                // Convert to WhatsApp URL if needed
+                const whatsappURL = this.convertQRToWhatsAppURL(qrData);
+                
+                // Generate QR code image
+                await this.generateQRCodeImage(whatsappURL, containerId);
+                
+                // Show instructions
+                this.showQRInstructions(containerId);
+            }
+
+            // Show QR code instructions
+            showQRInstructions(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+
+                // Add instructions if not already present
+                if (!container.querySelector('.qr-instructions')) {
+                    const instructions = document.createElement('div');
+                    instructions.className = 'qr-instructions';
+                    instructions.innerHTML = `
+                        <h4>📱 نحوه اتصال:</h4>
+                        <ol>
+                            <li>WhatsApp را در گوشی خود باز کنید</li>
+                            <li>به Settings > Linked Devices بروید</li>
+                            <li>Link a Device را انتخاب کنید</li>
+                            <li>QR Code بالا را اسکن کنید</li>
+                        </ol>
+                        <p><strong>نکته:</strong> QR Code فقط 5 دقیقه معتبر است</p>
+                    `;
+                    container.appendChild(instructions);
+                }
+            }
+
+            // Validate QR code format
+            isValidQRCode(qrCode) {
+                if (!qrCode || typeof qrCode !== 'string') {
+                    return false;
+                }
+                
+                // Check if it's a WhatsApp URL
+                if (qrCode.includes('wa.me') || qrCode.includes('whatsapp.com')) {
+                    return true;
+                }
+                
+                // Check if it's a raw QR code (contains base64-like characters)
+                const base64Pattern = /^[A-Za-z0-9+/=,]+$/;
+                return base64Pattern.test(qrCode);
+            }
+
+            // Get QR code type
+            getQRCodeType(qrCode) {
+                if (!qrCode || typeof qrCode !== 'string') {
+                    return 'invalid';
+                }
+                
+                if (qrCode.includes('wa.me') || qrCode.includes('whatsapp.com')) {
+                    return 'url';
+                }
+                
+                if (this.isValidQRCode(qrCode)) {
+                    return 'raw';
+                }
+                
+                return 'invalid';
+            }
+        }
+
+        // Initialize QR Code Helper
+        const qrHelper = new QRCodeHelper();
+
+        // DOM elements
+        const qrContainer = document.getElementById('qr-container');
+        const generateBtn = document.getElementById('generate-btn');
+        const testBtn = document.getElementById('test-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const status = document.getElementById('status');
+
+        // Event listeners
+        generateBtn.onclick = () => {
+            generateQRCode();
+        };
+
+        testBtn.onclick = () => {
+            testQRCode();
+        };
+
+        clearBtn.onclick = () => {
+            clearQRCode();
+        };
+
+        // Generate QR Code (simulate API call)
+        async function generateQRCode() {
+            status.textContent = 'در حال تولید QR Code...';
+            status.className = 'status waiting';
+            
+            // Show loading
+            qrContainer.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>در حال تولید QR Code...</p>
+                </div>
+            `;
+
+            try {
+                // Simulate API call delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Simulate raw QR code from API
+                const rawQRCode = '2@ybohIfUse1nhF4ZIsFqKSILiWXQR7Lxq1R76RMkflFa0pwgZkfeiXeLRPZjmQ5DZHj9Ji5VkMj0U9oBximpwLMgqLmlBVvzx6FM=,MK+YZoJ3Sqj0MUr5eATdyJry1pgFuMSx8sB65Dxg4CE=,Wm3zKDJb3FD79eRFtqkLDFeKI499gSImU1zKmJPlIT8=,HHWC4kkzzNuWIMaI8NNvVI4nvajuvxap/FmZ8ldLflY=,1';
+                
+                // Convert to WhatsApp URL
+                const whatsappURL = qrHelper.convertQRToWhatsAppURL(rawQRCode);
+                
+                // Display QR Code
+                await qrHelper.displayQRCode(whatsappURL, 'qr-container');
+                
+                status.textContent = 'QR Code تولید شد';
+                status.className = 'status success';
+                
+            } catch (error) {
+                console.error('Error generating QR code:', error);
+                status.textContent = 'خطا در تولید QR Code';
+                status.className = 'status error';
+            }
+        }
+
+        // Test QR Code with different formats
+        function testQRCode() {
+            const testCases = [
+                {
+                    name: 'Raw QR Code',
+                    data: '2@ybohIfUse1nhF4ZIsFqKSILiWXQR7Lxq1R76RMkflFa0pwgZkfeiXeLRPZjmQ5DZHj9Ji5VkMj0U9oBximpwLMgqLmlBVvzx6FM=,MK+YZoJ3Sqj0MUr5eATdyJry1pgFuMSx8sB65Dxg4CE=,Wm3zKDJb3FD79eRFtqkLDFeKI499gSImU1zKmJPlIT8=,HHWC4kkzzNuWIMaI8NNvVI4nvajuvxap/FmZ8ldLflY=,1'
+                },
+                {
+                    name: 'WhatsApp URL',
+                    data: 'https://wa.me/settings/linked_devices#2@ybohIfUse1nhF4ZIsFqKSILiWXQR7Lxq1R76RMkflFa0pwgZkfeiXeLRPZjmQ5DZHj9Ji5VkMj0U9oBximpwLMgqLmlBVvzx6FM=,MK+YZoJ3Sqj0MUr5eATdyJry1pgFuMSx8sB65Dxg4CE=,Wm3zKDJb3FD79eRFtqkLDFeKI499gSImU1zKmJPlIT8=,HHWC4kkzzNuWIMaI8NNvVI4nvajuvxap/FmZ8ldLflY=,1'
+                }
+            ];
+
+            let testIndex = 0;
+            
+            function runTest() {
+                if (testIndex >= testCases.length) {
+                    status.textContent = 'تست کامل شد';
+                    status.className = 'status success';
+                    return;
+                }
+
+                const testCase = testCases[testIndex];
+                status.textContent = `تست: ${testCase.name}`;
+                status.className = 'status waiting';
+                
+                qrHelper.displayQRCode(testCase.data, 'qr-container').then(() => {
+                    testIndex++;
+                    setTimeout(runTest, 3000);
+                });
+            }
+            
+            runTest();
+        }
+
+        // Clear QR Code
+        function clearQRCode() {
+            qrContainer.innerHTML = '';
+            status.textContent = 'QR Code پاک شد';
+            status.className = 'status';
+        }
+
+        // Initialize
+        console.log('QR Code Helper initialized');
+    </script>
+</body>
+</html>

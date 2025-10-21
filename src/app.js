@@ -21,7 +21,7 @@ app.use(express.json());
 app.use(helmet());
 app.use(rateLimit({windowMs: 15 * 60 * 1000, max: 200}));
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
+    origin: process.env.FRONTEND_URL || true, // اجازه دسترسی از همه origins
     credentials: true
 }));
 app.use(morgan("dev"));
@@ -60,6 +60,23 @@ app.use("/api/orders", orderRoutes)
 app.use("/api/payments", paymentRoutes)
 app.use("/api/admin", adminRoutes)
 app.use("/api/campaigns", campaignRoutes)
+
+// Static files
+app.use(express.static('public'));
+
+// Test route
+app.get('/test', (req, res) => {
+    res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
+});
+
+// Test API route
+app.post('/test-api', (req, res) => {
+    res.json({ 
+        message: 'Test API is working!', 
+        body: req.body,
+        timestamp: new Date().toISOString() 
+    });
+});
 
 // Centralized error handler
 // eslint-disable-next-line no-unused-vars
