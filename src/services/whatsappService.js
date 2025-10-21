@@ -17,6 +17,17 @@ const whatsappService = {
         console.log('📱 WhatsApp service initialized with WebSocket support');
     },
 
+    // Convert raw QR code to WhatsApp Web URL format
+    convertQRToWhatsAppURL(qrCode) {
+        // If QR code already contains WhatsApp URL, return as is
+        if (qrCode.includes('wa.me') || qrCode.includes('whatsapp.com')) {
+            return qrCode;
+        }
+
+        // Return raw QR code directly - no URL conversion needed
+        // The whatsapp-web.js library provides the raw QR data that should be used directly
+        return qrCode;
+    },
 
     // Generate QR code image from raw data
     async generateQRCodeImage(qrData) {
@@ -94,9 +105,13 @@ const whatsappService = {
                         session.timeout = null;
                     }
 
+                    // Convert QR code to WhatsApp Web URL format
+                    const whatsappQRUrl = this.convertQRToWhatsAppURL(qr);
+
                     // Generate QR code image data
                     const qrCodeData = {
                         raw: qr,
+                        url: whatsappQRUrl,
                         image: await this.generateQRCodeImage(qr)
                     };
 

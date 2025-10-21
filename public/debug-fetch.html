@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تست Fetch در مرورگر</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 تست Fetch در مرورگر</h1>
+        
+        <div>
+            <button id="test-server-btn" class="btn">تست سرور</button>
+            <button id="test-login-btn" class="btn">تست Login</button>
+            <button id="clear-log-btn" class="btn">پاکسازی لاگ</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+        <div id="log-container" class="log"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logContainer = document.getElementById('log-container');
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        async function testServer() {
+            try {
+                log('🔍 تست سرور...');
+                showStatus('در حال تست سرور...', 'info');
+                
+                const response = await fetch('/test');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ سرور کار می‌کند - Status: ${response.status}`);
+                    log(`📊 Response: ${data.message}`);
+                    showStatus('سرور کار می‌کند', 'success');
+                } else {
+                    log(`❌ سرور کار نمی‌کند - Status: ${response.status}`);
+                    showStatus('سرور کار نمی‌کند', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ خطا در تست سرور: ${error.message}`);
+                showStatus(`خطا: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testLogin() {
+            try {
+                log('🔐 تست Login...');
+                showStatus('در حال تست Login...', 'info');
+                
+                const response = await fetch('/api/user/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'ali@example.com',
+                        password: 'password123'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Login موفق - Status: ${response.status}`);
+                    log(`📊 User ID: ${data.user.id}`);
+                    log(`📊 Token: ${data.token.substring(0, 20)}...`);
+                    showStatus('Login موفق', 'success');
+                } else {
+                    const errorData = await response.json();
+                    log(`❌ Login ناموفق - Status: ${response.status}`);
+                    log(`❌ Error: ${errorData.message}`);
+                    showStatus(`Login ناموفق: ${errorData.message}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ خطا در Login: ${error.message}`);
+                showStatus(`خطا: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('log-container').innerHTML = '';
+            showStatus('لاگ پاک شد', 'info');
+        }
+        
+        // Event listeners
+        document.getElementById('test-server-btn').onclick = testServer;
+        document.getElementById('test-login-btn').onclick = testLogin;
+        document.getElementById('clear-log-btn').onclick = clearLog;
+        
+        // Auto test on load
+        window.onload = () => {
+            log('🚀 تست Fetch شروع شد');
+            testServer();
+        };
+    </script>
+</body>
+</html>

@@ -102,7 +102,7 @@ class WebSocketService {
     }
 
     // Send progress update
-    async sendProgressUpdate(campaignId, progress) {
+    async sendProgressUpdate(campaignId, progress, userId = null) {
         const update = {
             type: 'progress_update',
             campaignId: campaignId,
@@ -116,7 +116,7 @@ class WebSocketService {
     }
 
     // Send status update
-    async sendStatusUpdate(campaignId, status, message = null) {
+    async sendStatusUpdate(campaignId, status, message = null, userId = null) {
         const update = {
             type: 'status_update',
             campaignId: campaignId,
@@ -131,7 +131,7 @@ class WebSocketService {
     }
 
     // Send error update
-    async sendErrorUpdate(campaignId, error) {
+    async sendErrorUpdate(campaignId, error, userId = null) {
         const update = {
             type: 'error_update',
             campaignId: campaignId,
@@ -145,7 +145,7 @@ class WebSocketService {
     }
 
     // Send completion update
-    async sendCompletionUpdate(campaignId, report) {
+    async sendCompletionUpdate(campaignId, report, userId = null) {
         const update = {
             type: 'completion_update',
             campaignId: campaignId,
@@ -159,7 +159,7 @@ class WebSocketService {
     }
 
     // Send QR code
-    async sendQRCode(campaignId, qrCode) {
+    async sendQRCode(campaignId, qrCode, userId = null) {
         const update = {
             type: 'qr_code',
             campaignId: campaignId,
