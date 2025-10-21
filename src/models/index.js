@@ -1,12 +1,16 @@
 const prisma = require('../config/prisma');
 
+// Helper function for conditional logging
+const isDev = process.env.NODE_ENV === 'development';
+const log = (...args) => isDev && console.log(...args);
+
 module.exports = {
   prisma,
   User: {
     // User model methods
     async findById(id) {
       try {
-        console.log('🔍 User.findById called with ID:', id);
+        log('🔍 User.findById called with ID:', id);
         const user = await prisma.user.findUnique({
           where: { id: parseInt(id) },
           include: {
@@ -20,7 +24,7 @@ module.exports = {
             }
           }
         });
-        console.log('👤 User.findById result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not found');
+        log('👤 User.findById result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not found');
         return user;
       } catch (error) {
         console.error('💥 User.findById error:', error);
@@ -30,7 +34,7 @@ module.exports = {
 
     async findByEmail(email) {
       try {
-        console.log('🔍 User.findByEmail called with email:', email);
+        log('🔍 User.findByEmail called with email:', email);
         const user = await prisma.user.findUnique({
           where: { email },
           include: {
@@ -44,7 +48,7 @@ module.exports = {
             }
           }
         });
-        console.log('👤 User.findByEmail result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not found');
+        log('👤 User.findByEmail result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not found');
         return user;
       } catch (error) {
         console.error('💥 User.findByEmail error:', error);
@@ -54,7 +58,7 @@ module.exports = {
 
     async findByUsername(username) {
       try {
-        console.log('🔍 User.findByUsername called with username:', username);
+        log('🔍 User.findByUsername called with username:', username);
         const user = await prisma.user.findUnique({
           where: { username },
           include: {
@@ -68,7 +72,7 @@ module.exports = {
             }
           }
         });
-        console.log('👤 User.findByUsername result:', user ? `ID: ${user.id}, Username: ${user.username}` : 'Not found');
+        log('👤 User.findByUsername result:', user ? `ID: ${user.id}, Username: ${user.username}` : 'Not found');
         return user;
       } catch (error) {
         console.error('💥 User.findByUsername error:', error);
@@ -78,7 +82,7 @@ module.exports = {
 
     async findByPhone(phone) {
       try {
-        console.log('🔍 User.findByPhone called with phone:', phone);
+        log('🔍 User.findByPhone called with phone:', phone);
         const user = await prisma.user.findUnique({
           where: { phone },
           include: {
@@ -92,7 +96,7 @@ module.exports = {
             }
           }
         });
-        console.log('👤 User.findByPhone result:', user ? `ID: ${user.id}, Phone: ${user.phone}` : 'Not found');
+        log('👤 User.findByPhone result:', user ? `ID: ${user.id}, Phone: ${user.phone}` : 'Not found');
         return user;
       } catch (error) {
         console.error('💥 User.findByPhone error:', error);
@@ -102,7 +106,7 @@ module.exports = {
 
     async create(userData) {
       try {
-        console.log('🔍 User.create called with data:', { 
+        log('🔍 User.create called with data:', { 
           name: userData.name, 
           email: userData.email, 
           username: userData.username,
@@ -123,7 +127,7 @@ module.exports = {
           }
         });
         
-        console.log('👤 User.create result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not created');
+        log('👤 User.create result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not created');
         return user;
       } catch (error) {
         console.error('💥 User.create error:', error);
@@ -133,7 +137,7 @@ module.exports = {
 
     async update(id, userData) {
       try {
-        console.log('🔍 User.update called with ID:', id, 'and data:', userData);
+        log('🔍 User.update called with ID:', id, 'and data:', userData);
         
         const user = await prisma.user.update({
           where: { id: parseInt(id) },
@@ -150,7 +154,7 @@ module.exports = {
           }
         });
         
-        console.log('👤 User.update result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not updated');
+        log('👤 User.update result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not updated');
         return user;
       } catch (error) {
         console.error('💥 User.update error:', error);
@@ -160,13 +164,13 @@ module.exports = {
 
     async delete(id) {
       try {
-        console.log('🔍 User.delete called with ID:', id);
+        log('🔍 User.delete called with ID:', id);
         
         const user = await prisma.user.delete({
           where: { id: parseInt(id) }
         });
         
-        console.log('👤 User.delete result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not deleted');
+        log('👤 User.delete result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not deleted');
         return user;
       } catch (error) {
         console.error('💥 User.delete error:', error);
@@ -176,7 +180,7 @@ module.exports = {
 
     async findAll(filters = {}) {
       try {
-        console.log('🔍 User.findAll called with filters:', filters);
+        log('🔍 User.findAll called with filters:', filters);
         
         const users = await prisma.user.findMany({
           where: filters,
@@ -192,7 +196,7 @@ module.exports = {
           }
         });
         
-        console.log('👤 User.findAll result:', users.length, 'users found');
+        log('👤 User.findAll result:', users.length, 'users found');
         return users;
       } catch (error) {
         console.error('💥 User.findAll error:', error);

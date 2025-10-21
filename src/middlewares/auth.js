@@ -1,6 +1,10 @@
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
+// Helper for conditional logging
+const isDev = process.env.NODE_ENV === 'development';
+const log = (...args) => isDev && console.log(...args);
+
 // Extract token from Authorization header or session cookie
 const extractToken = (req) => {
     // First try Authorization header
@@ -53,7 +57,7 @@ exports.authenticateJwt = async (req, res, next) => {
 exports.authenticateSession = async (req, res, next) => {
     try {
         // Debug logging
-        console.log('🔍 Session auth check:', {
+        log('🔍 Session auth check:', {
             hasSession: !!req.session,
             sessionId: req.session?.id,
             userId: req.session?.userId,
@@ -66,14 +70,14 @@ exports.authenticateSession = async (req, res, next) => {
             try {
                 const user = await User.findById(req.session.userId);
                 if (user) {
-                    console.log('✅ User found in session:', user.email);
+                    log('✅ User found in session:', user.email);
                     req.user = user;
                     return next();
                 } else {
-                    console.log('❌ User not found for session userId:', req.session.userId);
+                    log('❌ User not found for session userId:', req.session.userId);
                 }
             } catch (dbError) {
-                console.log('⚠️ Database error, using session data:', dbError.message);
+                log('⚠️ Database error, using session data:', dbError.message);
                 // If database is not available, create a mock user from session
                 req.user = {
                     id: req.session.userId,
@@ -87,25 +91,25 @@ exports.authenticateSession = async (req, res, next) => {
         // Fallback to JWT token extraction from session
         const token = extractToken(req);
         if (!token) {
-            console.log('❌ No token found');
+            log('❌ No token found');
             return res.status(401).json({ 
                 message: "Authentication required",
                 hint: "Please login or provide valid token"
             });
         }
 
-        console.log('🔑 Token found, verifying...');
+        log('🔑 Token found, verifying...');
         const jwtSecret = process.env.JWT_SECRET || 'fallback-jwt-secret-please-set-in-env';
         
         try {
             const payload = jwt.verify(token, jwtSecret);
             const user = await User.findById(payload.id);
             if (!user) {
-                console.log('❌ User not found for token payload:', payload.id);
+                log('❌ User not found for token payload:', payload.id);
                 return res.status(401).json({ message: "User not found" });
             }
 
-            console.log('✅ User authenticated via token:', user.email);
+            log('✅ User authenticated via token:', user.email);
             // Store user in session for future requests
             if (req.session) {
                 req.session.userId = user.id;
@@ -114,7 +118,6 @@ exports.authenticateSession = async (req, res, next) => {
             req.user = user;
             next();
         } catch (dbError) {
-            // console.log('⚠️ Database error during token verification:', dbError.message);
             // If database is not available, create a mock user from token payload
             try {
                 const payload = jwt.verify(token, jwtSecret);
@@ -130,12 +133,10 @@ exports.authenticateSession = async (req, res, next) => {
                 }
                 next();
             } catch (jwtError) {
-                // console.log('❌ JWT verification failed:', jwtError.message);
                 return res.status(401).json({ message: "Invalid or expired token" });
             }
         }
     } catch (err) {
-        // console.log('❌ Auth error:', err.message);
         return res.status(401).json({ message: "Invalid or expired token" });
     }
 };

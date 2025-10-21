@@ -111,22 +111,22 @@ exports.checkCampaignStartPermission = async (req, res, next) => {
         // Get user with subscription info
         const user = await User.findById(req.user.id);
         
-        if (!user.subscription.isActive || new Date() > user.subscription.expiresAt) {
+        if (!user.subscriptionActive || new Date() > user.subscriptionExpiresAt) {
             return res.status(403).json({ 
-                message: "Active subscription required to start campaigns",
-                code: "SUBSCRIPTION_EXPIRED"
+                message: "You don't have an active subscription. Please purchase a package first.",
+                code: "SUBSCRIPTION_REQUIRED"
             });
         }
 
         // Check if campaign has recipients
         if (!campaign.recipients || campaign.recipients.length === 0) {
             return res.status(400).json({ 
-                message: "Campaign must have recipients before starting" 
+                message: "Campaign must have at least one recipient" 
             });
         }
 
         // Check if WhatsApp is connected
-        if (!campaign.whatsappSession.isConnected) {
+        if (!campaign.isConnected) {
             return res.status(400).json({ 
                 message: "WhatsApp account must be connected before starting campaign" 
             });

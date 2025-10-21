@@ -2,20 +2,34 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { User, Otp } = require("../models");
 
+// Helper: Check if user exists
+async function checkUserExists(username, email, phone = null) {
+    const existingUsername = await User.findByUsername(username);
+    if (existingUsername) {
+        throw { status: 400, message: "Username already exists" };
+    }
+
+    const existingEmail = await User.findByEmail(email);
+    if (existingEmail) {
+        throw { status: 400, message: "Email already exists" };
+    }
+
+    if (phone) {
+        const existingPhone = await User.findByPhone(phone);
+        if (existingPhone) {
+            throw { status: 400, message: "Phone number already exists" };
+        }
+    }
+}
+
 // REGISTER WITH OTP
 exports.registerUser = async (req, res) => {
     try {
         const { name, username, email, password, phone, verificationToken } = req.body;
 
-        // بررسی اینکه username قبلاً وجود نداشته باشه
-        const existingUsername = await User.findByUsername(username);
-        if (existingUsername) return res.status(400).json({ message: "Username already exists" });
+        await checkUserExists(username, email, phone);
 
-        // بررسی اینکه email قبلاً وجود نداشته باشه
-        const existingEmail = await User.findByEmail(email);
-        if (existingEmail) return res.status(400).json({ message: "Email already exists" });
-
-        // Enforce OTP verification (simple mode)
+        // Enforce OTP verification
         if (!verificationToken) {
             return res.status(400).json({ message: "verificationToken is required" });
         }
@@ -28,6 +42,7 @@ exports.registerUser = async (req, res) => {
         if (!otpRecord.verified) {
             return res.status(400).json({ message: "OTP not verified" });
         }
+        
         // Ensure OTP target matches email or phone
         const matchesEmail = otpRecord.channel === 'EMAIL' && otpRecord.target === email;
         const matchesPhone = otpRecord.channel === 'SMS' && otpRecord.target === phone;
@@ -48,8 +63,9 @@ exports.registerUser = async (req, res) => {
             avatar: null,
         });
 
-        // Invalidate OTP record for reuse prevention
+        // Invalidate OTP record
         try { await Otp.delete(otpRecord.id); } catch (e) {}
+        
         res.json({ 
             message: "User registered successfully", 
             user: { 
@@ -62,7 +78,8 @@ exports.registerUser = async (req, res) => {
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+        const status = err.status || 500;
+        res.status(status).json({ message: err.message || "Server error" });
     }
 };
 
@@ -71,19 +88,7 @@ exports.registerUserSimple = async (req, res) => {
     try {
         const { name, username, email, password, phone } = req.body;
 
-        // بررسی اینکه username قبلاً وجود نداشته باشه
-        const existingUsername = await User.findByUsername(username);
-        if (existingUsername) return res.status(400).json({ message: "Username already exists" });
-
-        // بررسی اینکه email قبلاً وجود نداشته باشه
-        const existingEmail = await User.findByEmail(email);
-        if (existingEmail) return res.status(400).json({ message: "Email already exists" });
-
-        // بررسی اینکه phone قبلاً وجود نداشته باشه
-        if (phone) {
-            const existingPhone = await User.findByPhone(phone);
-            if (existingPhone) return res.status(400).json({ message: "Phone number already exists" });
-        }
+        await checkUserExists(username, email, phone);
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -111,7 +116,8 @@ exports.registerUserSimple = async (req, res) => {
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+        const status = err.status || 500;
+        res.status(status).json({ message: err.message || "Server error" });
     }
 };
 

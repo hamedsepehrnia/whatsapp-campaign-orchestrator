@@ -4,6 +4,8 @@ const fs = require('fs');
 const xlsx = require('xlsx');
 const { Campaign, User } = require('../models');
 const websocketService = require('./websocketService');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 let io;
 const clients = new Map(); // Stores { campaignId: { client, userId, status } }
@@ -15,17 +17,6 @@ const whatsappService = {
         console.log('📱 WhatsApp service initialized with WebSocket support');
     },
 
-    // Convert raw QR code to WhatsApp Web URL format
-    convertQRToWhatsAppURL(qrCode) {
-        // If QR code already contains WhatsApp URL, return as is
-        if (qrCode.includes('wa.me') || qrCode.includes('whatsapp.com')) {
-            return qrCode;
-        }
-        
-        // Return raw QR code directly - no URL conversion needed
-        // The whatsapp-web.js library provides the raw QR data that should be used directly
-        return qrCode;
-    },
 
     // Generate QR code image from raw data
     async generateQRCodeImage(qrData) {
@@ -66,8 +57,8 @@ const whatsappService = {
 
             try {
                 const client = new Client({
-                    authStrategy: new LocalAuth({ 
-                        clientId: `session-${userId}-${campaignId}` 
+                    authStrategy: new LocalAuth({
+                        clientId: `session-${userId}-${campaignId}`
                     }),
                     puppeteer: {
                         headless: true,
@@ -85,7 +76,7 @@ const whatsappService = {
                     } catch (error) {
                         console.error(`Error during timeout cleanup:`, error);
                     }
-                    
+
                     // Send timeout error via WebSocket
                     await websocketService.sendErrorUpdate(campaignId, 'WhatsApp session initialization timeout', userId);
                 }, 30000);
@@ -95,24 +86,20 @@ const whatsappService = {
                 // QR Code event
                 client.on('qr', async (qr) => {
                     console.log(`📱 QR code generated for campaign ${campaignId}`);
-                    
+
                     // Clear timeout since QR code was generated
                     const session = clients.get(campaignId);
                     if (session && session.timeout) {
                         clearTimeout(session.timeout);
                         session.timeout = null;
                     }
-                    
-                    // Convert QR code to WhatsApp Web URL format
-                    const whatsappQRUrl = this.convertQRToWhatsAppURL(qr);
-                    
+
                     // Generate QR code image data
                     const qrCodeData = {
                         raw: qr,
-                        url: whatsappQRUrl,
                         image: await this.generateQRCodeImage(qr)
                     };
-                    
+
                     // Update campaign with QR code
                     await Campaign.update(campaignId, {
                         qrCode: JSON.stringify(qrCodeData),
@@ -126,14 +113,14 @@ const whatsappService = {
                 // Client ready event
                 client.on('ready', async () => {
                     console.log(`✅ WhatsApp client ready for campaign ${campaignId}`);
-                    
+
                     // Clear timeout since client is ready
                     const session = clients.get(campaignId);
                     if (session && session.timeout) {
                         clearTimeout(session.timeout);
                         session.timeout = null;
                     }
-                    
+
                     const clientInfo = {
                         number: client.info.wid.user,
                         name: client.info.pushname
@@ -145,6 +132,11 @@ const whatsappService = {
                         lastActivity: new Date(),
                         status: 'READY'
                     });
+                    // Mark session as ready in memory
+                    if (clients.has(campaignId)) {
+                        clients.get(campaignId).status = 'ready';
+                    }
+
 
                     // Send ready status via WebSocket
                     await websocketService.sendStatusUpdate(campaignId, 'ready', 'WhatsApp connected successfully', userId);
@@ -153,14 +145,14 @@ const whatsappService = {
                 // Client disconnected event
                 client.on('disconnected', async (reason) => {
                     console.log(`❌ WhatsApp client disconnected for campaign ${campaignId}:`, reason);
-                    
+
                     // Clear timeout
                     const session = clients.get(campaignId);
                     if (session && session.timeout) {
                         clearTimeout(session.timeout);
                         session.timeout = null;
                     }
-                    
+
                     // Update campaign status
                     await Campaign.update(campaignId, {
                         isConnected: false,
@@ -169,7 +161,7 @@ const whatsappService = {
 
                     // Send disconnected status via WebSocket
                     await websocketService.sendStatusUpdate(campaignId, 'failed', 'WhatsApp disconnected', userId);
-                    
+
                     this.cleanupSession(campaignId);
                 });
 
@@ -178,7 +170,7 @@ const whatsappService = {
 
             } catch (error) {
                 console.error(`❌ Failed to initialize WhatsApp client for campaign ${campaignId}:`, error);
-                
+
                 // Update campaign status
                 await Campaign.update(campaignId, {
                     status: 'FAILED'
@@ -186,7 +178,7 @@ const whatsappService = {
 
                 // Send error via WebSocket
                 await websocketService.sendErrorUpdate(campaignId, 'Failed to initialize WhatsApp client', userId);
-                
+
                 // Clean up session on error with better error handling
                 try {
                     this.cleanupSession(campaignId);
@@ -201,7 +193,7 @@ const whatsappService = {
     async handleStartCampaign(campaignId, userId) {
         try {
             const campaign = await Campaign.findById(campaignId);
-            
+
             if (!campaign || campaign.userId !== userId) {
                 throw new Error("Campaign not found or access denied");
             }
@@ -247,7 +239,7 @@ const whatsappService = {
 
         } catch (error) {
             console.error('❌ Error starting campaign:', error);
-            
+
             // Update campaign status
             await Campaign.update(campaignId, {
                 status: 'FAILED'
@@ -273,7 +265,7 @@ const whatsappService = {
             }
 
             const recipient = recipients[currentIndex];
-            
+
             try {
                 // Send message
                 const numberId = `${this.normalizeNumber(recipient.phone)}@c.us`;
@@ -288,16 +280,12 @@ const whatsappService = {
                 // Update recipient status
                 recipient.status = 'sent';
                 recipient.sentAt = new Date();
-                
+
                 // Update campaign progress
                 await Campaign.update(campaign.id, {
                     sentCount: campaign.sentCount + 1
                 });
-
-                // Update user's message count
-                await User.update(userId, {
-                    messagesSent: (user.messagesSent || 0) + 1
-                });
+                
 
                 // Add to report
                 report.push({
@@ -316,11 +304,11 @@ const whatsappService = {
 
             } catch (error) {
                 console.error(`❌ Failed to send message to ${recipient.phone}:`, error);
-                
+
                 // Update recipient status
                 recipient.status = 'failed';
                 recipient.error = error.message;
-                
+
                 // Update campaign progress
                 await Campaign.update(campaign.id, {
                     failedCount: campaign.failedCount + 1
@@ -355,6 +343,9 @@ const whatsappService = {
             campaignIntervals.delete(campaignId.toString());
         }
 
+        // Get campaign details
+        const campaign = await Campaign.findById(campaignId);
+
         // Update campaign status
         await Campaign.update(campaignId, {
             status: finalStatus,
@@ -364,12 +355,12 @@ const whatsappService = {
         if (campaign) {
             // Generate final report
             await this.generateCampaignReport(campaign, campaignInfo?.report || []);
-            
+
             // Send completion update via WebSocket
             await websocketService.sendCompletionUpdate(campaignId, {
                 status: finalStatus,
-                totalSent: campaign.progress.sent,
-                totalFailed: campaign.progress.failed,
+                totalSent: campaign.sentCount || 0,
+                totalFailed: campaign.failedCount || 0,
                 reportUrl: `/api/campaigns/${campaignId}/report`
             }, userId);
         }
@@ -381,30 +372,33 @@ const whatsappService = {
     // Generate campaign report
     async generateCampaignReport(campaign, report) {
         try {
+            const totalMessages = campaign.totalRecipients || 0;
+            const successfulMessages = campaign.sentCount || 0;
+            const failedMessages = campaign.failedCount || 0;
+            
             const reportData = {
-                totalMessages: campaign.progress.total,
-                successfulMessages: campaign.progress.sent,
-                failedMessages: campaign.progress.failed,
-                deliveryRate: (campaign.progress.sent / campaign.progress.total) * 100,
+                totalMessages: totalMessages,
+                successfulMessages: successfulMessages,
+                failedMessages: failedMessages,
+                deliveryRate: totalMessages > 0 ? (successfulMessages / totalMessages) * 100 : 0,
                 averageDeliveryTime: 0, // Calculate based on timestamps
                 errors: report.filter(r => r.status === 'failed').map(r => r.error)
             };
 
-            // Update campaign with report
+            // Update campaign with report (using existing fields)
             await Campaign.update(campaign.id, {
-                reportTotalMessages: reportData.totalMessages,
-                reportSuccessfulMessages: reportData.successfulMessages,
-                reportFailedMessages: reportData.failedMessages,
-                reportDeliveryRate: reportData.deliveryRate,
-                reportAverageDeliveryTime: reportData.averageDeliveryTime,
-                reportErrors: reportData.errors
+                totalMessages: reportData.totalMessages,
+                successfulMessages: reportData.successfulMessages,
+                failedMessages: reportData.failedMessages,
+                deliveryRate: reportData.deliveryRate,
+                averageDeliveryTime: reportData.averageDeliveryTime
             });
 
             // Generate Excel report
             const wb = xlsx.utils.book_new();
             const ws = xlsx.utils.json_to_sheet(report);
             xlsx.utils.book_append_sheet(wb, ws, "Campaign Report");
-            
+
             const reportPath = path.join(__dirname, '..', '..', 'uploads', `report-${campaign.id}-${Date.now()}.xlsx`);
             xlsx.writeFile(wb, reportPath);
 
@@ -418,9 +412,9 @@ const whatsappService = {
     // Cancel user campaigns
     async cancelUserCampaigns(userId) {
         console.log(`🛑 Cancelling all campaigns for user ID: ${userId}`);
-        
-        const campaigns = await Campaign.findAll({ 
-            userId: userId, 
+
+        const campaigns = await Campaign.findAll({
+            userId: userId,
             status: 'RUNNING'
         });
 
@@ -438,7 +432,7 @@ const whatsappService = {
                 if (session.timeout) {
                     clearTimeout(session.timeout);
                 }
-                
+
                 // Check if client exists and has proper methods before destroying
                 if (session.client && typeof session.client.destroy === 'function') {
                     // Check if the client's browser is still valid before destroying

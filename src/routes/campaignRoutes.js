@@ -16,7 +16,6 @@ const {
     deleteAttachment,
     getAttachmentDetails,
     getCampaignPreview,
-    confirmAndStartCampaign,
     getCampaignStepStatus,
     navigateToStep,
     goBackStep,
@@ -28,6 +27,7 @@ const {
     searchCampaigns,
     getCampaignDetails,
     getCampaignRecipients,
+    generateReport,
     downloadReport,
     downloadMultipleReports,
     pauseCampaign,
@@ -109,7 +109,6 @@ router.post('/cleanup-temp', cleanupTempFiles);
 
 // Campaign preview and confirmation
 router.get('/:campaignId/preview', getCampaignPreview);
-router.post('/:campaignId/confirm-and-start', confirmAndStartCampaign);
 
 // Wizard navigation
 router.get('/:campaignId/steps', getCampaignStepStatus);
@@ -128,6 +127,7 @@ router.post('/:campaignId/pause', pauseCampaign);
 router.post('/:campaignId/resume', resumeCampaign);
 
 // Progress and reporting
+router.get('/:campaignId/report', generateReport);
 router.get('/:campaignId/report/download', downloadReport);
 router.post('/reports/download-multiple', downloadMultipleReports);
 

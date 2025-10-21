@@ -1,7 +1,12 @@
 const { PrismaClient } = require('@prisma/client');
 
+// Configure logging based on environment
+const logLevel = process.env.NODE_ENV === 'development' 
+  ? ['warn', 'error'] // Only show warnings and errors in development
+  : ['error']; // Only show errors in production
+
 const prisma = new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
+  log: logLevel,
 });
 
 // Handle graceful shutdown

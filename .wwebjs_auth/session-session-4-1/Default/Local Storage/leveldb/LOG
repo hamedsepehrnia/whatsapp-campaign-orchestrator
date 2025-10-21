@@ -1,6 +1,6 @@
-2025/10/21-17:30:10.624 5a58 Reusing MANIFEST c:\Users\hamed\Desktop\New folder (2)\whatsapp-messager\.wwebjs_auth\session-session-4-1\Default\Local Storage\leveldb/MANIFEST-000001
-2025/10/21-17:30:10.625 5a58 Recovering log #3
-2025/10/21-17:30:10.625 5a58 Reusing old log c:\Users\hamed\Desktop\New folder (2)\whatsapp-messager\.wwebjs_auth\session-session-4-1\Default\Local Storage\leveldb/000003.log 
-2025/10/21-17:33:06.119 5db0 Level-0 table #5: started
-2025/10/21-17:33:06.120 5db0 Level-0 table #5: 24869 bytes OK
-2025/10/21-17:33:06.122 5db0 Delete type=0 #3
+2025/10/22-00:32:18.508 3cc8 Reusing MANIFEST C:\Users\hamed\Desktop\New folder (2)\whatsapp-messager\.wwebjs_auth\session-session-4-1\Default\Local Storage\leveldb/MANIFEST-000001
+2025/10/22-00:32:18.508 3cc8 Recovering log #6
+2025/10/22-00:32:18.509 3cc8 Reusing old log C:\Users\hamed\Desktop\New folder (2)\whatsapp-messager\.wwebjs_auth\session-session-4-1\Default\Local Storage\leveldb/000006.log 
+2025/10/22-00:33:19.102 291c Level-0 table #10: started
+2025/10/22-00:33:19.103 291c Level-0 table #10: 13914 bytes OK
+2025/10/22-00:33:19.105 291c Delete type=0 #6
