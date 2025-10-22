@@ -81,9 +81,26 @@ const whatsappService = {
                     }),
                     puppeteer: {
                         headless: true,
-                        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                        args: [
+                            '--no-sandbox', 
+                            '--disable-setuid-sandbox',
+                            '--disable-dev-shm-usage',
+                            '--disable-accelerated-2d-canvas',
+                            '--no-first-run',
+                            '--no-zygote',
+                            '--disable-gpu'
+                        ],
                         executablePath: process.env.CHROME_PATH || undefined,
+                        handleSIGINT: false,
+                        handleSIGTERM: false,
+                        handleSIGHUP: false
                     }
+                });
+
+                // Add error handler for client to prevent crashes
+                client.on('error', (error) => {
+                    console.error(`❌ WhatsApp client error for campaign ${campaignId}:`, error.message);
+                    // Don't throw - just log
                 });
 
                 // Set timeout for client initialization (30 seconds)
@@ -104,111 +121,149 @@ const whatsappService = {
 
                 // QR Code event
                 client.on('qr', async (qr) => {
-                    console.log(`📱 QR code generated for campaign ${campaignId}`);
+                    try {
+                        console.log(`📱 QR code generated for campaign ${campaignId}`);
 
-                    // Clear timeout since QR code was generated
-                    const session = clients.get(campaignId);
-                    if (session && session.timeout) {
-                        clearTimeout(session.timeout);
-                        session.timeout = null;
+                        // Clear timeout since QR code was generated
+                        const session = clients.get(campaignId);
+                        if (session && session.timeout) {
+                            clearTimeout(session.timeout);
+                            session.timeout = null;
+                        }
+
+                        // Convert QR code to WhatsApp Web URL format
+                        const whatsappQRUrl = this.convertQRToWhatsAppURL(qr);
+
+                        // Generate QR code image data
+                        const qrCodeData = {
+                            raw: qr,
+                            url: whatsappQRUrl,
+                            image: await this.generateQRCodeImage(qr)
+                        };
+
+                        // Update campaign with QR code
+                        await Campaign.update(campaignId, {
+                            qrCode: JSON.stringify(qrCodeData),
+                            isConnected: false
+                        }).catch(err => console.error('Error updating campaign with QR:', err));
+
+                        // Send QR code via WebSocket
+                        await websocketService.sendQRCode(campaignId, qrCodeData, userId)
+                            .catch(err => console.error('Error sending QR via websocket:', err));
+                    } catch (error) {
+                        console.error(`❌ Error in QR event handler for campaign ${campaignId}:`, error.message);
                     }
-
-                    // Convert QR code to WhatsApp Web URL format
-                    const whatsappQRUrl = this.convertQRToWhatsAppURL(qr);
-
-                    // Generate QR code image data
-                    const qrCodeData = {
-                        raw: qr,
-                        url: whatsappQRUrl,
-                        image: await this.generateQRCodeImage(qr)
-                    };
-
-                    // Update campaign with QR code
-                    await Campaign.update(campaignId, {
-                        qrCode: JSON.stringify(qrCodeData),
-                        isConnected: false
-                    });
-
-                    // Send QR code via WebSocket
-                    await websocketService.sendQRCode(campaignId, qrCodeData, userId);
                 });
 
                 // Client ready event
                 client.on('ready', async () => {
-                    console.log(`✅ WhatsApp client ready for campaign ${campaignId}`);
+                    try {
+                        console.log(`✅ WhatsApp client ready for campaign ${campaignId}`);
 
-                    // Clear timeout since client is ready
-                    const session = clients.get(campaignId);
-                    if (session && session.timeout) {
-                        clearTimeout(session.timeout);
-                        session.timeout = null;
+                        // Clear timeout since client is ready
+                        const session = clients.get(campaignId);
+                        if (session && session.timeout) {
+                            clearTimeout(session.timeout);
+                            session.timeout = null;
+                        }
+
+                        const clientInfo = {
+                            number: client.info.wid.user,
+                            name: client.info.pushname
+                        };
+
+                        // Update campaign status
+                        await Campaign.update(campaignId, {
+                            isConnected: true,
+                            lastActivity: new Date(),
+                            status: 'READY'
+                        }).catch(err => console.error('Error updating campaign on ready:', err));
+                        
+                        // Mark session as ready in memory
+                        if (clients.has(campaignId)) {
+                            clients.get(campaignId).status = 'ready';
+                        }
+
+                        // Send ready status via WebSocket
+                        await websocketService.sendStatusUpdate(campaignId, 'ready', 'WhatsApp connected successfully', userId)
+                            .catch(err => console.error('Error sending ready status via websocket:', err));
+                    } catch (error) {
+                        console.error(`❌ Error in ready event handler for campaign ${campaignId}:`, error.message);
                     }
-
-                    const clientInfo = {
-                        number: client.info.wid.user,
-                        name: client.info.pushname
-                    };
-
-                    // Update campaign status
-                    await Campaign.update(campaignId, {
-                        isConnected: true,
-                        lastActivity: new Date(),
-                        status: 'READY'
-                    });
-                    // Mark session as ready in memory
-                    if (clients.has(campaignId)) {
-                        clients.get(campaignId).status = 'ready';
-                    }
-
-
-                    // Send ready status via WebSocket
-                    await websocketService.sendStatusUpdate(campaignId, 'ready', 'WhatsApp connected successfully', userId);
                 });
 
                 // Client disconnected event
                 client.on('disconnected', async (reason) => {
-                    console.log(`❌ WhatsApp client disconnected for campaign ${campaignId}:`, reason);
+                    try {
+                        console.log(`❌ WhatsApp client disconnected for campaign ${campaignId}:`, reason);
 
-                    // Clear timeout
-                    const session = clients.get(campaignId);
-                    if (session && session.timeout) {
-                        clearTimeout(session.timeout);
-                        session.timeout = null;
+                        // Clear timeout
+                        const session = clients.get(campaignId);
+                        if (session && session.timeout) {
+                            clearTimeout(session.timeout);
+                            session.timeout = null;
+                        }
+
+                        // Stop any ongoing message sending interval
+                        const campaignInfo = campaignIntervals.get(campaignId);
+                        if (campaignInfo) {
+                            console.log(`🛑 Stopping message sending for campaign ${campaignId} due to disconnection`);
+                            clearInterval(campaignInfo.intervalId);
+                            campaignIntervals.delete(campaignId);
+                        }
+
+                        // Update campaign status
+                        await Campaign.update(campaignId, {
+                            isConnected: false,
+                            status: 'FAILED'
+                        }).catch(err => console.error('Error updating campaign on disconnect:', err));
+
+                        // Send disconnected status via WebSocket
+                        await websocketService.sendStatusUpdate(campaignId, 'failed', 'WhatsApp disconnected during operation', userId)
+                            .catch(err => console.error('Error sending websocket update:', err));
+
+                        // Cleanup session (sync to prevent race conditions)
+                        this.cleanupSession(campaignId);
+                    } catch (error) {
+                        console.error(`❌ Error in disconnected event handler for campaign ${campaignId}:`, error.message);
                     }
-
-                    // Update campaign status
-                    await Campaign.update(campaignId, {
-                        isConnected: false,
-                        status: 'FAILED'
-                    });
-
-                    // Send disconnected status via WebSocket
-                    await websocketService.sendStatusUpdate(campaignId, 'failed', 'WhatsApp disconnected', userId);
-
-                    this.cleanupSession(campaignId);
                 });
 
                 // Authentication failure event
                 client.on('auth_failure', async (message) => {
-                    console.log(`❌ WhatsApp authentication failed for campaign ${campaignId}:`, message);
+                    try {
+                        console.log(`❌ WhatsApp authentication failed for campaign ${campaignId}:`, message);
 
-                    // Clear timeout
-                    const session = clients.get(campaignId);
-                    if (session && session.timeout) {
-                        clearTimeout(session.timeout);
-                        session.timeout = null;
+                        // Clear timeout
+                        const session = clients.get(campaignId);
+                        if (session && session.timeout) {
+                            clearTimeout(session.timeout);
+                            session.timeout = null;
+                        }
+
+                        // Stop any ongoing message sending interval
+                        const campaignInfo = campaignIntervals.get(campaignId);
+                        if (campaignInfo) {
+                            console.log(`🛑 Stopping message sending for campaign ${campaignId} due to auth failure`);
+                            clearInterval(campaignInfo.intervalId);
+                            campaignIntervals.delete(campaignId);
+                        }
+
+                        // Update campaign status
+                        await Campaign.update(campaignId, {
+                            isConnected: false,
+                            status: 'FAILED'
+                        }).catch(err => console.error('Error updating campaign on auth failure:', err));
+
+                        // Send error via WebSocket
+                        await websocketService.sendErrorUpdate(campaignId, 'WhatsApp authentication failed', userId)
+                            .catch(err => console.error('Error sending websocket update:', err));
+
+                        // Cleanup session
+                        this.cleanupSession(campaignId);
+                    } catch (error) {
+                        console.error(`❌ Error in auth_failure event handler for campaign ${campaignId}:`, error.message);
                     }
-
-                    // Update campaign status
-                    await Campaign.update(campaignId, {
-                        isConnected: false,
-                        status: 'FAILED'
-                    });
-
-                    // Send error via WebSocket
-                    await websocketService.sendErrorUpdate(campaignId, 'WhatsApp authentication failed', userId);
-
-                    this.cleanupSession(campaignId);
                 });
 
                 // Initialize client
@@ -311,11 +366,44 @@ const whatsappService = {
         const intervalMs = this.getIntervalMs(campaign.interval);
         let currentIndex = 0;
         const report = [];
+        const campaignId = campaign.id.toString();
 
         const intervalId = setInterval(async () => {
             if (currentIndex >= recipients.length) {
                 // Campaign completed
                 await this.handleStopCampaign(campaign.id, 'COMPLETED', userId);
+                return;
+            }
+
+            // Check if client is still connected before sending
+            const session = clients.get(campaignId);
+            if (!session || !session.client) {
+                console.log(`⚠️ Client not found for campaign ${campaignId}, stopping message sending`);
+                clearInterval(intervalId);
+                campaignIntervals.delete(campaignId);
+                await this.handleStopCampaign(campaign.id, 'FAILED', userId);
+                return;
+            }
+
+            // Check if client state is connected
+            try {
+                const state = await client.getState().catch(() => null);
+                if (state !== 'CONNECTED') {
+                    console.log(`⚠️ Client not connected for campaign ${campaignId} (state: ${state}), stopping message sending`);
+                    clearInterval(intervalId);
+                    campaignIntervals.delete(campaignId);
+                    await Campaign.update(campaign.id, {
+                        status: 'FAILED',
+                        isConnected: false
+                    });
+                    await websocketService.sendErrorUpdate(campaign.id, 'WhatsApp disconnected during message sending', userId);
+                    return;
+                }
+            } catch (stateError) {
+                console.log(`⚠️ Could not get client state for campaign ${campaignId}, assuming disconnected`);
+                clearInterval(intervalId);
+                campaignIntervals.delete(campaignId);
+                await this.handleStopCampaign(campaign.id, 'FAILED', userId);
                 return;
             }
 
@@ -359,6 +447,35 @@ const whatsappService = {
 
             } catch (error) {
                 console.error(`❌ Failed to send message to ${recipient.phone}:`, error);
+
+                // Check if error is due to client disconnection
+                const isDisconnectionError = error.message && (
+                    error.message.includes('Protocol error') ||
+                    error.message.includes('Session closed') ||
+                    error.message.includes('not authenticated') ||
+                    error.message.includes('Connection closed') ||
+                    error.message.includes('Execution context was destroyed')
+                );
+
+                if (isDisconnectionError) {
+                    console.log(`🔴 Critical error detected for campaign ${campaignId}: Client disconnected`);
+                    clearInterval(intervalId);
+                    campaignIntervals.delete(campaignId);
+                    
+                    await Campaign.update(campaign.id, {
+                        status: 'FAILED',
+                        isConnected: false
+                    });
+                    
+                    await websocketService.sendErrorUpdate(
+                        campaign.id, 
+                        'Campaign stopped: WhatsApp connection lost during message sending', 
+                        userId
+                    );
+                    
+                    // Don't continue with next message
+                    return;
+                }
 
                 // Update recipient status
                 recipient.status = 'failed';
@@ -480,14 +597,36 @@ const whatsappService = {
 
     // Cleanup session
     cleanupSession(campaignId) {
-        const session = clients.get(campaignId);
-        if (session) {
+        try {
+            const session = clients.get(campaignId);
+            if (!session) {
+                console.log(`⚠️ No session found for campaign ${campaignId}, skipping cleanup`);
+                return;
+            }
+
             try {
                 // Clear any existing timeout
                 if (session.timeout) {
                     clearTimeout(session.timeout);
+                    session.timeout = null;
                 }
+            } catch (err) {
+                console.log(`⚠️ Error clearing timeout for campaign ${campaignId}`);
+            }
 
+            try {
+                // Clear any ongoing message sending interval
+                const campaignInfo = campaignIntervals.get(campaignId);
+                if (campaignInfo) {
+                    console.log(`🛑 Stopping message sending interval for campaign ${campaignId}`);
+                    clearInterval(campaignInfo.intervalId);
+                    campaignIntervals.delete(campaignId);
+                }
+            } catch (err) {
+                console.log(`⚠️ Error clearing interval for campaign ${campaignId}`);
+            }
+
+            try {
                 // Check if client exists and has proper methods before destroying
                 if (session.client && typeof session.client.destroy === 'function') {
                     try {
@@ -497,8 +636,8 @@ const whatsappService = {
                                             !session.client.pupBrowser.isConnected();
                         
                         if (!browserClosed) {
-                            // Try to destroy the client
-                            session.client.destroy().catch(err => {
+                            // Try to destroy the client (non-blocking)
+                            Promise.resolve(session.client.destroy()).catch(err => {
                                 console.log(`⚠️ Error during client destroy for campaign ${campaignId}:`, err.message);
                             });
                         } else {
@@ -508,7 +647,7 @@ const whatsappService = {
                         // If browser check fails, try to destroy anyway but catch errors
                         console.log(`⚠️ Browser state check failed for campaign ${campaignId}, attempting destroy anyway`);
                         try {
-                            session.client.destroy().catch(() => {
+                            Promise.resolve(session.client.destroy()).catch(() => {
                                 // Silently ignore destroy errors if browser is already gone
                             });
                         } catch (destroyError) {
@@ -517,11 +656,20 @@ const whatsappService = {
                     }
                 }
             } catch (error) {
-                console.error("❌ Error during session cleanup:", error.message);
-            } finally {
-                // Always remove from clients map
+                console.log(`⚠️ Error during client destroy for campaign ${campaignId}:`, error.message);
+            }
+
+            // Always remove from clients map
+            clients.delete(campaignId);
+            console.log(`🧹 Cleaned up session for campaign ${campaignId}`);
+            
+        } catch (error) {
+            console.error(`❌ Critical error during session cleanup for campaign ${campaignId}:`, error.message);
+            // Force remove from map even if cleanup failed
+            try {
                 clients.delete(campaignId);
-                console.log(`🧹 Cleaned up session for campaign ${campaignId}`);
+            } catch (e) {
+                // Ignore
             }
         }
     },
