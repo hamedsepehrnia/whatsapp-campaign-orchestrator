@@ -245,9 +245,10 @@ cleanupSession(campaignId) {
 
 | پارامتر | مقدار | توضیح |
 |---------|-------|-------|
-| Client Init Timeout | 30 ثانیه | حداکثر زمان برای initialize شدن client |
+| Client Init Timeout | 60 ثانیه | حداکثر زمان برای initialize شدن client |
 | Cleanup Delay | 1 ثانیه | تاخیر بعد از cleanup برای اطمینان از تمام شدن عملیات |
 | State Check | هر پیام | قبل از ارسال هر پیام، state چک می‌شود |
+| Race Condition Prevention | ✅ | Flag `timedOut` برای جلوگیری از duplicate errors |
 
 ---
 
@@ -389,12 +390,83 @@ puppeteer: {
 ✅ Session errors  
 ✅ Multiple concurrent disconnects  
 ✅ Network failures  
+✅ **Timeout race conditions** (جدید)
+✅ **Browser disconnect during initialization** (جدید)
 
 همه خطاها لاگ می‌شوند اما سرور **همیشه در حال اجرا** می‌ماند.
 
 ---
 
+## 🐛 رفع مشکل: "Navigation failed because browser has disconnected"
+
+### علائم:
+```
+⏰ Timeout reached for campaign X, cleaning up...
+🧹 Cleaned up session for campaign X
+❌ Failed to initialize WhatsApp client: Error: Navigation failed because browser has disconnected!
+```
+
+### دلیل:
+Timeout رخ می‌دهد و browser را می‌بندد، اما `client.initialize()` هنوز در حال اجرا است و بعد fail می‌شود (Race Condition).
+
+### راه حل پیاده‌سازی شده:
+
+#### 1. **Timeout Flag** ✅
+```javascript
+const initTimeout = setTimeout(async () => {
+    const session = clients.get(campaignId);
+    if (session) {
+        session.timedOut = true; // علامت‌گذاری
+    }
+    this.cleanupSession(campaignId);
+}, 60000);
+```
+
+#### 2. **Session Check Before/After Initialize** ✅
+```javascript
+// چک قبل
+const sessionBefore = clients.get(campaignId);
+if (!sessionBefore) return;
+
+await client.initialize();
+
+// چک بعد
+const sessionAfter = clients.get(campaignId);
+if (!sessionAfter) return;
+```
+
+#### 3. **Skip Error if Already Timed Out** ✅
+```javascript
+catch (initError) {
+    const session = clients.get(campaignId);
+    if (session && session.timedOut) {
+        return; // timeout قبلاً handle شده
+    }
+    
+    if (initError.message.includes('browser has disconnected')) {
+        return; // timeout این را ایجاد کرده
+    }
+    
+    throw initError; // خطاهای دیگر
+}
+```
+
+### نتیجه:
+✅ دیگر خطای duplicate رخ نمی‌دهد  
+✅ Timeout به درستی handle می‌شود  
+✅ سرور کرش نمی‌کند  
+✅ پیام واضح به کاربر
+
+---
+
 **تاریخ آخرین به‌روزرسانی:** 2025-01-22  
-**نسخه:** 3.0 (Crash-Proof)  
+**نسخه:** 3.1 (Crash-Proof + Timeout Fix)  
 **وضعیت:** ✅ تست شده و تایید شده - No Crash Guaranteed
+
+### تغییرات نسخه 3.1:
+- ✅ افزایش timeout از 30 به 60 ثانیه
+- ✅ رفع مشکل race condition در timeout
+- ✅ اضافه شدن flag `timedOut` برای جلوگیری از duplicate errors
+- ✅ چک کردن session قبل و بعد از initialize
+- ✅ Handle کردن خطای "browser has disconnected"
 

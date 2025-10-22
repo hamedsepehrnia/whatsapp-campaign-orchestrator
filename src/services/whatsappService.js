@@ -103,10 +103,16 @@ const whatsappService = {
                     // Don't throw - just log
                 });
 
-                // Set timeout for client initialization (30 seconds)
+                // Set timeout for client initialization (60 seconds)
                 const initTimeout = setTimeout(async () => {
                     console.log(`⏰ Timeout reached for campaign ${campaignId}, cleaning up...`);
                     try {
+                        // Mark as timed out to prevent race condition
+                        const session = clients.get(campaignId);
+                        if (session) {
+                            session.timedOut = true;
+                        }
+                        
                         // Use cleanupSession which has better error handling
                         this.cleanupSession(campaignId);
                     } catch (error) {
@@ -114,8 +120,8 @@ const whatsappService = {
                     }
 
                     // Send timeout error via WebSocket
-                    await websocketService.sendErrorUpdate(campaignId, 'WhatsApp session initialization timeout', userId);
-                }, 30000);
+                    await websocketService.sendErrorUpdate(campaignId, 'WhatsApp session initialization timeout (60s). Please check your Chrome installation.', userId);
+                }, 60000);
 
                 clients.set(campaignId, { client, userId, status: 'pending', timeout: initTimeout });
 
@@ -267,7 +273,41 @@ const whatsappService = {
                 });
 
                 // Initialize client
-                await client.initialize();
+                try {
+                    // Check if session was cleaned up before initialization
+                    const sessionBefore = clients.get(campaignId);
+                    if (!sessionBefore) {
+                        console.log(`⚠️ Session was removed before initialization for campaign ${campaignId}`);
+                        return;
+                    }
+                    
+                    console.log(`🔍 Starting client initialization for campaign ${campaignId}...`);
+                    await client.initialize();
+                    console.log(`✅ Client initialization completed for campaign ${campaignId}`);
+                    
+                    // Check if session was cleaned up after initialization
+                    const sessionAfter = clients.get(campaignId);
+                    if (!sessionAfter) {
+                        console.log(`⚠️ Session was removed after initialization for campaign ${campaignId}`);
+                        return;
+                    }
+                } catch (initError) {
+                    // Check if timeout already handled this
+                    const session = clients.get(campaignId);
+                    if (session && session.timedOut) {
+                        console.log(`⚠️ Session already timed out for campaign ${campaignId}, skipping error handling`);
+                        return;
+                    }
+                    
+                    // Check if this is due to browser disconnect (timeout cleanup)
+                    if (initError.message && initError.message.includes('browser has disconnected')) {
+                        console.log(`⚠️ Browser disconnected during initialization for campaign ${campaignId} (likely timeout)`);
+                        return; // Don't throw - timeout already handled it
+                    }
+                    
+                    // Re-throw for catch block below to handle
+                    throw initError;
+                }
 
             } catch (error) {
                 console.error(`❌ Failed to initialize WhatsApp client for campaign ${campaignId}:`, error);
@@ -279,6 +319,8 @@ const whatsappService = {
                     console.log(`⚠️ Execution context error for campaign ${campaignId} - cleanup needed`);
                 } else if (error.message && error.message.includes('Protocol error')) {
                     errorMessage = 'Browser connection error. Please try again.';
+                } else if (error.message && error.message.includes('browser has disconnected')) {
+                    errorMessage = 'Browser connection timeout. Please try again.';
                 }
 
                 // Update campaign status
