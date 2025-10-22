@@ -67,6 +67,14 @@ const whatsappService = {
             console.log(`📱 Preparing WhatsApp session for campaign ${campaignId}`);
 
             try {
+                // Clean up existing session first to avoid conflicts
+                if (clients.has(campaignId)) {
+                    console.log(`🧹 Cleaning up existing session for campaign ${campaignId}`);
+                    this.cleanupSession(campaignId);
+                    // Wait a bit for cleanup to complete
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+
                 const client = new Client({
                     authStrategy: new LocalAuth({
                         clientId: `session-${userId}-${campaignId}`
@@ -180,11 +188,43 @@ const whatsappService = {
                     this.cleanupSession(campaignId);
                 });
 
+                // Authentication failure event
+                client.on('auth_failure', async (message) => {
+                    console.log(`❌ WhatsApp authentication failed for campaign ${campaignId}:`, message);
+
+                    // Clear timeout
+                    const session = clients.get(campaignId);
+                    if (session && session.timeout) {
+                        clearTimeout(session.timeout);
+                        session.timeout = null;
+                    }
+
+                    // Update campaign status
+                    await Campaign.update(campaignId, {
+                        isConnected: false,
+                        status: 'FAILED'
+                    });
+
+                    // Send error via WebSocket
+                    await websocketService.sendErrorUpdate(campaignId, 'WhatsApp authentication failed', userId);
+
+                    this.cleanupSession(campaignId);
+                });
+
                 // Initialize client
                 await client.initialize();
 
             } catch (error) {
                 console.error(`❌ Failed to initialize WhatsApp client for campaign ${campaignId}:`, error);
+
+                // Determine error message based on error type
+                let errorMessage = 'Failed to initialize WhatsApp client';
+                if (error.message && error.message.includes('Execution context was destroyed')) {
+                    errorMessage = 'Previous session cleanup in progress. Please try again in a moment.';
+                    console.log(`⚠️ Execution context error for campaign ${campaignId} - cleanup needed`);
+                } else if (error.message && error.message.includes('Protocol error')) {
+                    errorMessage = 'Browser connection error. Please try again.';
+                }
 
                 // Update campaign status
                 await Campaign.update(campaignId, {
@@ -192,7 +232,7 @@ const whatsappService = {
                 });
 
                 // Send error via WebSocket
-                await websocketService.sendErrorUpdate(campaignId, 'Failed to initialize WhatsApp client', userId);
+                await websocketService.sendErrorUpdate(campaignId, errorMessage, userId);
 
                 // Clean up session on error with better error handling
                 try {
@@ -450,18 +490,39 @@ const whatsappService = {
 
                 // Check if client exists and has proper methods before destroying
                 if (session.client && typeof session.client.destroy === 'function') {
-                    // Check if the client's browser is still valid before destroying
-                    if (session.client.pupBrowser && !session.client.pupBrowser.isClosed()) {
-                        session.client.destroy();
-                    } else {
-                        console.log(`⚠️ Browser already closed for campaign ${campaignId}, skipping destroy`);
+                    try {
+                        // Safely check if the browser is still accessible
+                        const browserClosed = session.client.pupBrowser && 
+                                            typeof session.client.pupBrowser.isConnected === 'function' &&
+                                            !session.client.pupBrowser.isConnected();
+                        
+                        if (!browserClosed) {
+                            // Try to destroy the client
+                            session.client.destroy().catch(err => {
+                                console.log(`⚠️ Error during client destroy for campaign ${campaignId}:`, err.message);
+                            });
+                        } else {
+                            console.log(`⚠️ Browser already disconnected for campaign ${campaignId}, skipping destroy`);
+                        }
+                    } catch (browserError) {
+                        // If browser check fails, try to destroy anyway but catch errors
+                        console.log(`⚠️ Browser state check failed for campaign ${campaignId}, attempting destroy anyway`);
+                        try {
+                            session.client.destroy().catch(() => {
+                                // Silently ignore destroy errors if browser is already gone
+                            });
+                        } catch (destroyError) {
+                            console.log(`⚠️ Could not destroy client for campaign ${campaignId}:`, destroyError.message);
+                        }
                     }
                 }
             } catch (error) {
-                console.error("❌ Error destroying WhatsApp client:", error.message);
+                console.error("❌ Error during session cleanup:", error.message);
+            } finally {
+                // Always remove from clients map
+                clients.delete(campaignId);
+                console.log(`🧹 Cleaned up session for campaign ${campaignId}`);
             }
-            clients.delete(campaignId);
-            console.log(`🧹 Cleaned up session for campaign ${campaignId}`);
         }
     },
 
