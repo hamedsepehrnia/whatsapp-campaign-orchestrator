@@ -102,3 +102,10 @@ build/
 # Test outputs
 test-results/
 coverage/
+
+#other
+.idea/
+.wwebjs_auth/
+.wwebjs_cache/
+.env.backup
+qr-code.png
