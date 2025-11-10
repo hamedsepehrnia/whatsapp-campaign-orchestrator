@@ -16,10 +16,6 @@ const {
     deleteAttachment,
     getAttachmentDetails,
     getCampaignPreview,
-    getCampaignStepStatus,
-    navigateToStep,
-    goBackStep,
-    resetToStep,
     generateQRCode,
     checkConnection,
     startCampaign,
@@ -46,54 +42,30 @@ const router = express.Router();
 // Public route for downloading Excel template (no authentication required)
 router.get('/excel-template/download', downloadExcelTemplate);
 
-// Public route for testing QR code generation (no authentication required)
-router.post('/test-qr-code', async (req, res) => {
-    try {
-        const { campaignId, userId } = req.body;
-        
-        if (!campaignId || !userId) {
-            return res.status(400).json({ 
-                message: "Campaign ID and User ID are required" 
-            });
-        }
-
-        // Generate unique session ID
-        const sessionId = require('uuid').v4();
-        
-        res.json({
-            message: "QR code generation initiated",
-            sessionId: sessionId,
-            campaignId: campaignId,
-            userId: userId,
-            instructions: "WhatsApp session is being prepared. QR code will be sent via WebSocket."
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-});
-
 // All other routes require JWT authentication
 router.use(authenticateSession);
 
 // Subscription info
 router.get('/subscription', getSubscriptionInfo, require('../controllers/campaignController').getSubscriptionInfo);
 
+// Scheduled campaigns - MUST be before /:campaignId routes
+router.get('/scheduled', getScheduledCampaigns);
+
 // Campaign CRUD operations
 router.post('/', createCampaign);
 router.get('/', validateCampaignStatus, getMyCampaigns);
 router.get('/search', validateCampaignStatus, searchCampaigns);
-router.get('/:campaignId', getCampaignDetails);
-router.delete('/:campaignId', deleteCampaign);
 
 // Campaign settings
 router.put('/:campaignId/interval', setCampaignInterval);
 router.put('/:campaignId/title', updateCampaignTitle);
 
-// Scheduled campaigns
-router.get('/scheduled', getScheduledCampaigns);
+// Scheduled campaign cancel
 router.post('/:campaignId/cancel-schedule', cancelScheduledCampaign);
+
+// Campaign CRUD with ID - MUST be after all specific routes
+router.get('/:campaignId', getCampaignDetails);
+router.delete('/:campaignId', deleteCampaign);
 
 // File uploads with subscription validation
 router.post('/:campaignId/recipients', uploadRecipients);
@@ -109,12 +81,6 @@ router.post('/cleanup-temp', cleanupTempFiles);
 
 // Campaign preview and confirmation
 router.get('/:campaignId/preview', getCampaignPreview);
-
-// Wizard navigation
-router.get('/:campaignId/steps', getCampaignStepStatus);
-router.post('/:campaignId/navigate', navigateToStep);
-router.post('/:campaignId/go-back', goBackStep);
-router.post('/:campaignId/reset', resetToStep);
 
 // WhatsApp integration
 router.post('/:campaignId/qr-code', generateQRCode);

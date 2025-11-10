@@ -1,319 +1,170 @@
-# WhatsApp Campaign Management API
+# WhatsApp Campaign API
 
-یک سیستم جامع برای مدیریت کمپین‌های واتساپ با قابلیت‌های پیشرفته و رابط کاربری مدرن.
+Enterprise-grade API for orchestrating WhatsApp messaging campaigns with scheduling, analytics, and billing.
 
-## 🚀 ویژگی‌های کلیدی
+[![Persian](https://img.shields.io/badge/lang-persian-blue?style=for-the-badge)](#فارسی)
+[![English](https://img.shields.io/badge/lang-English-green?style=for-the-badge)](#english)
 
-### 📱 مدیریت کمپین‌های واتساپ
-- **ایجاد کمپین**: ایجاد کمپین‌های جدید با پیام‌های سفارشی
-- **ارسال انبوه**: ارسال پیام به هزاران مخاطب به صورت خودکار
-- **پیوست‌ها**: پشتیبانی از ارسال فایل‌های مختلف (تصویر، ویدیو، سند)
-- **زمان‌بندی**: قابلیت زمان‌بندی ارسال پیام‌ها
-- **QR Code**: اتصال امن از طریق QR Code
+## Funding
 
-### 🔐 سیستم احراز هویت
-- **OTP**: احراز هویت با کد یکبار مصرف
-- **JWT**: سیستم توکن‌های امن
-- **Session Management**: مدیریت جلسات کاربری
-- **Role-based Access**: دسترسی بر اساس نقش کاربر
+<a href="https://www.coffeebede.com/hamesep">
+  <img src="https://coffeebede.ir/DashboardTemplateV2/app-assets/images/banner/default-yellow.svg" alt="Buy Me A Coffee" height="60">
+</a>
 
-### 💳 سیستم پرداخت
-- **پکیج‌های اشتراک**: پکیج‌های مختلف با محدودیت پیام
-- **درگاه پرداخت**: پشتیبانی از درگاه‌های مختلف
-- **مدیریت تراکنش**: پیگیری کامل تراکنش‌ها
+<a href="https://nowpayments.io/donation?api_key=19623fa3-605a-436a-97cd-b5859356b41d" target="_blank">
+  <img src="https://img.shields.io/badge/Donate-Crypto-blue?style=for-the-badge&logo=bitcoin&logoColor=white" alt="Donate with Crypto" height="50">
+</a>
 
-### 📊 گزارش‌گیری و آمار
-- **آمار کمپین**: آمار کامل ارسال و تحویل
-- **گزارش Excel**: خروجی گزارش‌ها به صورت Excel
-- **Real-time Updates**: به‌روزرسانی لحظه‌ای وضعیت
+## English
 
-### 🛡️ امنیت و بهینه‌سازی
-- **Rate Limiting**: محدودیت نرخ درخواست
-- **Input Validation**: اعتبارسنجی ورودی‌ها
-- **Error Handling**: مدیریت خطاهای جامع
-- **Logging**: سیستم لاگ‌گیری پیشرفته
+### Overview
+WhatsApp Campaign API delivers a backend service for managing bulk WhatsApp outreach, integrating campaign orchestration, contact management, payment handling, and real-time progress monitoring.
 
-## 🏗️ معماری سیستم
+### Features
+- **Campaign Management**: create targeted campaigns, schedule dispatch windows, attach media assets, and monitor delivery status.
+- **Contact Operations**: import recipients from spreadsheets, validate data, and deduplicate contact lists.
+- **Messaging Automation**: integrate with WhatsApp Web sessions, maintain QR-based login, and stream message status events via WebSocket.
+- **Access and Security**: authenticate with OTP and JWT, enforce role-based permissions, rate limiting, and structured request validation.
+- **Billing and Packages**: define subscription tiers, process payments, and reconcile transactions.
+- **Observability**: capture structured logs, expose operational metrics, and export campaign reports to Excel.
 
+### Technology Stack
+| Component | Technology |
+| --- | --- |
+| Runtime | Node.js 18 LTS |
+| Framework | Express 5 |
+| Database | MySQL 8 + Prisma ORM |
+| Messaging Integration | whatsapp-web.js |
+| Realtime Channel | WebSocket (ws) |
+| Authentication | Passport, JWT, OTP |
+| Validation | Zod |
+| Utilities | Multer, Nodemailer, Axios |
+
+### Installation
+1. Clone the repository: `git clone <repository-url>` and `cd whatsapp-messager`.
+2. Install dependencies: `npm install`.
+3. Configure environment: copy `.env.example` if available or create `.env` based on the configuration section.
+4. Generate Prisma client: `npm run db:generate`.
+5. Apply database migrations: `npm run db:migrate`.
+6. Start the development server: `npm run dev`.
+
+### Project Structure
 ```
 src/
-├── app.js                 # تنظیمات اصلی Express
-├── config/               # تنظیمات پایگاه داده و احراز هویت
-├── controllers/          # کنترلرهای API
-├── middlewares/         # میدل‌ویرهای امنیتی و اعتبارسنجی
-├── models/              # مدل‌های Prisma
-├── routes/              # مسیرهای API
-├── services/            # سرویس‌های WhatsApp و WebSocket
-├── utils/               # ابزارهای کمکی
-└── validators/          # اعتبارسنجی ورودی‌ها
+├── app.js
+├── config/
+├── controllers/
+├── middlewares/
+├── routes/
+├── services/
+├── utils/
+└── validators/
 ```
 
-## 🛠️ تکنولوژی‌های استفاده شده
+### Configuration
+Set environment variables in `.env`:
+- `DATABASE_URL` for the MySQL connection string.
+- `JWT_SECRET` and `JWT_REFRESH_SECRET` for token issuance.
+- `SESSION_SECRET` for session handling.
+- `PORT` and `NODE_ENV` for server runtime.
+- `FRONTEND_URL` to allow CORS.
+- `KAVENEGAR_API_KEY`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS` for SMS and email providers.
 
-- **Backend**: Node.js, Express.js
-- **Database**: MySQL با Prisma ORM
-- **Authentication**: JWT, Passport.js
-- **WhatsApp**: whatsapp-web.js
-- **Real-time**: WebSocket
-- **File Upload**: Multer
-- **Validation**: Zod
-- **Security**: Helmet, bcrypt
+### Contributing
+1. Fork the repository.
+2. Create a feature branch: `git checkout -b feature/<name>`.
+3. Commit with clear messages: `git commit -m "Describe change"`.
+4. Push the branch: `git push origin feature/<name>`.
+5. Open a pull request describing the change and testing performed.
 
-## 📋 پیش‌نیازها
+### License
+This project is licensed under the MIT License.
 
-- Node.js (v16 یا بالاتر)
-- MySQL (v8 یا بالاتر)
-- npm یا yarn
+### Support
+- Report issues via the repository issue tracker.
+- Contact support at `support@example.com`.
+- Sponsor development through the funding links above.
 
-## ⚙️ نصب و راه‌اندازی
+## فارسی
 
-### 1. کلون کردن پروژه
-```bash
-git clone <repository-url>
-cd whatsapp-messager
+### معرفی
+WhatsApp Campaign API یک سرویس پشتیبان برای مدیریت کمپین‌های انبوه واتساپ است که امکان برنامه‌ریزی ارسال، مدیریت مخاطبان، کنترل پرداخت و پایش لحظه‌ای پیشرفت را فراهم می‌کند.
+
+### ویژگی‌ها
+- **مدیریت کمپین**: ایجاد کمپین هدفمند، زمان‌بندی ارسال، پیوست فایل و پایش وضعیت تحویل.
+- **عملیات مخاطبان**: وارد کردن مخاطبان از فایل‌های صفحه‌گسترده، اعتبارسنجی داده و حذف تکراری‌ها.
+- **اتوماسیون پیام**: اتصال به نشست واتساپ، ورود با QR، و انتشار رویدادهای وضعیت از طریق WebSocket.
+- **دسترسی و امنیت**: احراز هویت OTP و JWT، کنترل نقش، محدودیت نرخ و اعتبارسنجی ساختارمند درخواست‌ها.
+- **صورتحساب و پکیج‌ها**: تعریف سطوح اشتراک، پردازش پرداخت و تطبیق تراکنش‌ها.
+- **قابلیت مشاهده**: ثبت لاگ ساخت‌یافته، ارائه شاخص‌های عملکرد و خروجی گزارش کمپین به Excel.
+
+### پشته فناوری
+| مولفه | فناوری |
+| --- | --- |
+| زمان اجرا | Node.js 18 LTS |
+| فریم‌ورک | Express 5 |
+| پایگاه داده | MySQL 8 + Prisma ORM |
+| یکپارچه‌سازی پیام | whatsapp-web.js |
+| کانال بلادرنگ | WebSocket (ws) |
+| احراز هویت | Passport، JWT، OTP |
+| اعتبارسنجی | Zod |
+| ابزارها | Multer، Nodemailer، Axios |
+
+### نصب
+1. مخزن را کلون کنید: `git clone <repository-url>` سپس `cd whatsapp-messager`.
+2. وابستگی‌ها را نصب کنید: `npm install`.
+3. متغیرهای محیطی را در فایل `.env` مطابق بخش پیکربندی تنظیم کنید.
+4. کلاینت Prisma را تولید کنید: `npm run db:generate`.
+5. مایگریشن‌های پایگاه داده را اجرا کنید: `npm run db:migrate`.
+6. سرویس توسعه را اجرا کنید: `npm run dev`.
+
+### ساختار پروژه
+```
+src/
+├── app.js
+├── config/
+├── controllers/
+├── middlewares/
+├── routes/
+├── services/
+├── utils/
+└── validators/
 ```
 
-### 2. نصب وابستگی‌ها
-```bash
-npm install
-```
+### پیکربندی
+متغیرهای زیر را در `.env` مقداردهی کنید:
+- `DATABASE_URL` برای اتصال MySQL.
+- `JWT_SECRET` و `JWT_REFRESH_SECRET` برای صدور توکن.
+- `SESSION_SECRET` برای مدیریت نشست.
+- `PORT` و `NODE_ENV` برای اجرای سرور.
+- `FRONTEND_URL` جهت فعال‌سازی CORS.
+- `KAVENEGAR_API_KEY`، `EMAIL_HOST`، `EMAIL_PORT`، `EMAIL_USER`، `EMAIL_PASS` برای سرویس پیامک و ایمیل.
 
-### 3. تنظیم متغیرهای محیطی
-فایل `.env` را ایجاد کنید:
+### مشارکت
+1. مخزن را Fork کنید.
+2. شاخه ویژگی بسازید: `git checkout -b feature/<name>`.
+3. با پیام شفاف Commit بزنید: `git commit -m "Describe change"`.
+4. شاخه را Push کنید: `git push origin feature/<name>`.
+5. Pull Request با توضیح تغییرات و تست‌ها ثبت کنید.
 
-```env
-# Database
-DATABASE_URL="mysql://username:password@localhost:3306/whatsapp_campaign"
-
-# JWT
-JWT_SECRET="your-jwt-secret"
-JWT_REFRESH_SECRET="your-refresh-secret"
-
-# Session
-SESSION_SECRET="your-session-secret"
-
-# Server
-PORT=3000
-NODE_ENV=development
-
-# Frontend
-FRONTEND_URL="http://localhost:3000"
-
-# SMS Service (Kavenegar)
-KAVENEGAR_API_KEY="your-kavenegar-api-key"
-
-# Email
-EMAIL_HOST="smtp.gmail.com"
-EMAIL_PORT=587
-EMAIL_USER="your-email@gmail.com"
-EMAIL_PASS="your-email-password"
-```
-
-### 4. راه‌اندازی پایگاه داده
-```bash
-# تولید Prisma Client
-npm run db:generate
-
-# اجرای مایگریشن‌ها
-npm run db:migrate
-
-# (اختیاری) مشاهده پایگاه داده
-npm run db:studio
-```
-
-### 5. اجرای پروژه
-```bash
-# حالت توسعه
-npm run dev
-
-# حالت تولید
-npm start
-```
-
-## 🔧 اسکریپت‌های مفید
-
-```bash
-# بررسی متغیرهای محیطی
-npm run check-env
-
-# ایجاد کاربر ادمین
-npm run make-admin
-
-# اجرای تست‌ها
-npm test
-npm run test:campaign
-npm run test:whatsapp
-npm run test:all
-```
-
-## 📚 API Documentation
-
-### احراز هویت
-- `POST /api/auth/request-otp` - درخواست کد OTP
-- `POST /api/auth/verify-otp` - تایید کد OTP
-
-### مدیریت کاربران
-- `GET /api/user/profile` - دریافت پروفایل کاربر
-- `PUT /api/user/profile` - به‌روزرسانی پروفایل
-- `POST /api/refresh/token` - تازه‌سازی توکن
-
-### مدیریت کمپین‌ها
-- `POST /api/campaigns` - ایجاد کمپین جدید
-- `GET /api/campaigns` - لیست کمپین‌های کاربر
-- `GET /api/campaigns/:id` - جزئیات کمپین
-- `POST /api/campaigns/:id/upload-recipients` - آپلود لیست مخاطبین
-- `POST /api/campaigns/:id/upload-attachment` - آپلود پیوست
-- `POST /api/campaigns/:id/generate-qr` - تولید QR Code
-- `POST /api/campaigns/:id/start` - شروع کمپین
-- `GET /api/campaigns/:id/status` - وضعیت کمپین
-
-### مدیریت پکیج‌ها
-- `GET /api/packages` - لیست پکیج‌ها
-- `GET /api/packages/:id` - جزئیات پکیج
-
-### مدیریت سفارشات
-- `POST /api/orders` - ایجاد سفارش
-- `GET /api/orders/me` - سفارشات کاربر
-
-### مدیریت پرداخت
-- `POST /api/payments/verify` - تایید پرداخت
-- `GET /api/payments/me` - تاریخچه پرداخت‌ها
-
-### پنل ادمین
-- `GET /api/admin/users` - لیست کاربران
-- `GET /api/admin/transactions` - لیست تراکنش‌ها
-- `GET /api/admin/dashboard` - آمار داشبورد
-
-## 🔌 WebSocket Events
-
-### اتصال
-```javascript
-const socket = io('ws://localhost:3000/ws/campaigns');
-```
-
-### رویدادهای کمپین
-- `campaign_status` - به‌روزرسانی وضعیت کمپین
-- `message_progress` - پیشرفت ارسال پیام
-- `connection_status` - وضعیت اتصال WhatsApp
-
-## 📱 استفاده از WhatsApp
-
-### 1. اتصال به WhatsApp
-```javascript
-// تولید QR Code
-POST /api/campaigns/:id/generate-qr
-
-// بررسی وضعیت اتصال
-GET /api/campaigns/:id/connection-status
-```
-
-### 2. شروع کمپین
-```javascript
-// شروع ارسال پیام
-POST /api/campaigns/:id/start
-```
-
-### 3. نظارت بر پیشرفت
-```javascript
-// دریافت وضعیت کمپین
-GET /api/campaigns/:id/status
-
-// دریافت آمار
-GET /api/campaigns/:id/stats
-```
-
-## 🧪 تست‌ها
-
-### اجرای تست‌های کامل
-```bash
-npm run test:all
-```
-
-### تست‌های خاص
-```bash
-# تست API های کمپین
-npm run test:campaign
-
-# تست یکپارچگی WhatsApp
-npm run test:whatsapp
-```
-
-## 📊 مانیتورینگ و لاگ‌ها
-
-### لاگ‌های سیستم
-- تمام درخواست‌ها در فایل لاگ ثبت می‌شوند
-- خطاها با جزئیات کامل لاگ می‌شوند
-- آمار عملکرد سیستم قابل رصد است
-
-### مانیتورینگ کمپین‌ها
-- وضعیت لحظه‌ای کمپین‌ها
-- آمار ارسال و تحویل پیام‌ها
-- گزارش‌های تفصیلی عملکرد
-
-## 🔒 امنیت
-
-### اقدامات امنیتی
-- **Rate Limiting**: محدودیت 200 درخواست در 15 دقیقه
-- **Helmet**: محافظت از هدرهای HTTP
-- **CORS**: کنترل دسترسی cross-origin
-- **Input Validation**: اعتبارسنجی کامل ورودی‌ها
-- **Password Hashing**: رمزنگاری امن رمز عبور
-
-### بهترین شیوه‌ها
-- استفاده از متغیرهای محیطی برای اطلاعات حساس
-- اعتبارسنجی تمام ورودی‌ها
-- لاگ‌گیری مناسب برای امنیت
-- به‌روزرسانی منظم وابستگی‌ها
-
-## 🚀 استقرار (Deployment)
-
-### متغیرهای محیطی تولید
-```env
-NODE_ENV=production
-DATABASE_URL="mysql://user:pass@host:port/db"
-JWT_SECRET="strong-secret"
-SESSION_SECRET="strong-session-secret"
-```
-
-### دستورات استقرار
-```bash
-# نصب وابستگی‌ها
-npm install --production
-
-# اجرای مایگریشن‌ها
-npm run db:deploy
-
-# شروع سرویس
-npm start
-```
-
-## 🤝 مشارکت
-
-1. Fork کنید
-2. شاخه جدید ایجاد کنید (`git checkout -b feature/amazing-feature`)
-3. تغییرات را commit کنید (`git commit -m 'Add amazing feature'`)
-4. Push کنید (`git push origin feature/amazing-feature`)
-5. Pull Request ایجاد کنید
-
-## 📄 مجوز
-
+### مجوز
 این پروژه تحت مجوز MIT منتشر شده است.
 
-## 📞 پشتیبانی
+### پشتیبانی
+- گزارش اشکال از طریق Issue Tracker مخزن.
+- ارتباط ایمیلی با `support@example.com`.
+- حمایت مالی از طریق لینک‌های بخش حمایت مالی.
 
-برای سوالات و پشتیبانی:
-- ایمیل: support@example.com
-- تلگرام: @support_bot
+<div align="center">
 
-## 🔄 به‌روزرسانی‌ها
+*Version* 1.0.0 | *Node.js* 18.x | *Language* JavaScript
 
-### نسخه 1.0.0
-- راه‌اندازی اولیه سیستم
-- پشتیبانی از کمپین‌های واتساپ
-- سیستم احراز هویت OTP
-- پنل ادمین کامل
-- گزارش‌گیری پیشرفته
+<img src="https://img.shields.io/badge/Node.js-18.x-339933?style=flat-square&logo=node.js&logoColor=white">
+<img src="https://img.shields.io/badge/Express-5-black?style=flat-square&logo=express&logoColor=white">
+<img src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat-square&logo=prisma&logoColor=white">
 
 ---
 
-**نکته**: این سیستم برای استفاده تجاری طراحی شده و تمام قابلیت‌های امنیتی و بهینه‌سازی لازم را دارا می‌باشد.
+© 2025 WhatsApp Campaign API
+
+</div>

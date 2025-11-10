@@ -4,10 +4,13 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');
 const fs = require('fs');
-const qrcode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 const websocketService = require('../services/websocketService');
 const whatsappService = require('../services/whatsappService');
+const { asyncHandler } = require('../middlewares/errorHandler');
+const { BadRequestError, ValidationError } = require('../utils/errors');
+const { verifyCampaignAccess, verifyCampaignNotRunning, verifyCampaignReady, verifyCampaignHasRecipients } = require('../utils/campaignHelpers');
+const { cleanupUploadedFile, safeDeleteFile } = require('../utils/fileHelpers');
 
 // Configure multer for temporary file uploads
 const tempStorage = multer.diskStorage({
@@ -125,509 +128,341 @@ const permanentUpload = multer({
 const upload = permanentUpload;
 
 // Create new campaign
-exports.createCampaign = async (req, res) => {
-    try {
-        const { message, title } = req.body;
-        
-        if (!message) {
-            return res.status(400).json({ 
-                message: "Message is required" 
-            });
-        }
-
-        if (!title) {
-            return res.status(400).json({ 
-                message: "Title is required" 
-            });
-        }
-
-        const campaign = await Campaign.create({
-            userId: req.user.id,
-            message,
-            title: title.trim()
-        });
-
-        res.status(201).json({
-            message: "Campaign created successfully",
-            campaign: {
-                id: campaign.id,
-                title: campaign.title,
-                status: campaign.status
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+exports.createCampaign = asyncHandler(async (req, res) => {
+    const { message, title } = req.body;
+    
+    if (!message) {
+        throw new BadRequestError('Message is required');
     }
-};
+
+    if (!title || !title.trim()) {
+        throw new BadRequestError('Title is required');
+    }
+
+    const campaign = await Campaign.create({
+        userId: req.user.id,
+        message,
+        title: title.trim()
+    });
+
+    res.status(201).json({
+        success: true,
+        message: "Campaign created successfully",
+        campaign: {
+            id: campaign.id,
+            title: campaign.title,
+            status: campaign.status
+        }
+    });
+});
 
 // Upload recipients from Excel file
 exports.uploadRecipients = [
     tempUpload.single('recipientsFile'),
-    async (req, res) => {
-        try {
-            const { campaignId } = req.params;
-            
-            if (!req.file) {
-                return res.status(400).json({ message: "Excel file is required" });
-            }
-
-            const campaign = await Campaign.findById(campaignId);
-            
-            if (!campaign) {
-                return res.status(404).json({ message: "Campaign not found" });
-            }
-
-            if (campaign.userId !== req.user.id) {
-                return res.status(403).json({ message: "Access denied" });
-            }
-
-            // Read Excel file
-            const workbook = xlsx.readFile(req.file.path);
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const data = xlsx.utils.sheet_to_json(worksheet);
-
-            // Validate Excel file structure
-            if (!data || data.length === 0) {
-                return res.status(400).json({ 
-                    message: "Excel file is empty or has no data" 
-                });
-            }
-
-            // Check if required columns exist
-            const firstRow = data[0];
-            const hasPhoneColumn = firstRow.phone || firstRow.Phone || firstRow.PHONE || firstRow['شماره تلفن'];
-            const hasNameColumn = firstRow.name || firstRow.Name || firstRow.NAME || firstRow['نام'];
-            
-            if (!hasPhoneColumn) {
-                return res.status(400).json({ 
-                    message: "Excel file must contain a 'phone' column (or 'Phone', 'PHONE', 'شماره تلفن')" 
-                });
-            }
-
-            // Extract phone numbers and names with proper error handling
-            const recipients = [];
-            const errors = [];
-            
-            data.forEach((row, index) => {
-                try {
-                    const phone = row.phone || row.Phone || row.PHONE || row['شماره تلفن'];
-                    const name = row.name || row.Name || row.NAME || row['نام'];
-                    
-                    if (!phone) {
-                        errors.push(`Row ${index + 2}: Missing phone number`);
-                        return; // Skip this row
-                    }
-
-                    // Validate phone number format
-                    const cleanPhone = phone.toString().replace(/\D/g, '');
-                    if (cleanPhone.length < 10) {
-                        errors.push(`Row ${index + 2}: Invalid phone number format`);
-                        return; // Skip this row
-                    }
-
-                    recipients.push({
-                        phone: cleanPhone,
-                        name: name ? name.toString() : undefined
-                    });
-                } catch (error) {
-                    errors.push(`Row ${index + 2}: ${error.message}`);
-                }
-            });
-
-            // Check if we have any valid recipients
-            if (recipients.length === 0) {
-                return res.status(400).json({ 
-                    message: "No valid recipients found in Excel file",
-                    errors: errors
-                });
-            }
-
-            // Log warnings for skipped rows
-            if (errors.length > 0) {
-                console.warn(`⚠️ Excel upload warnings:`, errors);
-            }
-
-            // Check subscription limits
-            const user = await User.findById(req.user.id);
-            const totalRecipients = recipients.length;
-            
-            // Get user's message limit from their package
-            let messageLimit = 0;
-            if (user.purchasedPackages && user.purchasedPackages.length > 0) {
-                // Assuming each package has a messageLimit field
-                messageLimit = user.purchasedPackages.reduce((total, pkg) => {
-                    return total + (pkg.messageLimit || 0);
-                }, 0);
-            }
-
-            if (messageLimit > 0 && totalRecipients > messageLimit) {
-                return res.status(400).json({
-                    message: `Recipients count (${totalRecipients}) exceeds your subscription limit (${messageLimit})`
-                });
-            }
-
-            // Save recipients to Recipient table
-            const recipientsWithCampaignId = recipients.map(recipient => ({
-                ...recipient,
-                campaignId: parseInt(campaignId)
-            }));
-            
-            await Recipient.createMany(recipientsWithCampaignId);
-
-            // Update campaign with total recipients count
-            await Campaign.update(campaignId, {
-                totalRecipients: recipients.length,
-                status: 'READY'
-            });
-
-            // Send WebSocket update
-            await websocketService.sendCampaignUpdate(campaignId, req.user.id);
-
-            // Clean up uploaded file safely
-            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-                try {
-                    fs.unlinkSync(req.file.path);
-                } catch (error) {
-                    console.error('❌ Error deleting uploaded file:', error.message);
-                }
-            }
-
-            res.json({
-                message: "Recipients uploaded successfully",
-                recipientsCount: recipients.length,
-                warnings: errors.length > 0 ? errors : undefined,
-                campaign: {
-                    id: campaignId,
-                    status: 'READY',
-                    totalRecipients: recipients.length
-                }
-            });
-
-        } catch (err) {
-            console.error('❌ Excel upload error:', err);
-            
-            // Clean up uploaded file safely
-            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-                try {
-                    fs.unlinkSync(req.file.path);
-                } catch (error) {
-                    console.error('❌ Error deleting uploaded file:', error.message);
-                }
-            }
-            
-            // Handle specific Excel parsing errors
-            if (err.message.includes('Cannot read property') || err.message.includes('undefined')) {
-                return res.status(400).json({ 
-                    message: "Invalid Excel file format. Please check your file structure.",
-                    error: "File format error"
-                });
-            }
-            
-            res.status(500).json({ 
-                message: "Server error while processing Excel file", 
-                error: err.message 
-            });
+    asyncHandler(async (req, res) => {
+        const { campaignId } = req.params;
+        
+        if (!req.file) {
+            throw new BadRequestError('Excel file is required');
         }
-    }
+
+        const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+
+        // Read Excel file
+        const workbook = xlsx.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(worksheet);
+
+        // Validate Excel file structure
+        if (!data || data.length === 0) {
+            cleanupUploadedFile(req);
+            throw new BadRequestError('Excel file is empty or has no data');
+        }
+
+        // Check if required columns exist
+        const firstRow = data[0];
+        const hasPhoneColumn = firstRow.phone || firstRow.Phone || firstRow.PHONE || firstRow['شماره تلفن'];
+        
+        if (!hasPhoneColumn) {
+            cleanupUploadedFile(req);
+            throw new BadRequestError("Excel file must contain a 'phone' column (or 'Phone', 'PHONE', 'شماره تلفن')");
+        }
+
+        // Extract phone numbers and names
+        const recipients = [];
+        const errors = [];
+        
+        data.forEach((row, index) => {
+            const phone = row.phone || row.Phone || row.PHONE || row['شماره تلفن'];
+            const name = row.name || row.Name || row.NAME || row['نام'];
+            
+            if (!phone) {
+                errors.push(`Row ${index + 2}: Missing phone number`);
+                return;
+            }
+
+            const cleanPhone = phone.toString().replace(/\D/g, '');
+            if (cleanPhone.length < 10) {
+                errors.push(`Row ${index + 2}: Invalid phone number format`);
+                return;
+            }
+
+            recipients.push({
+                phone: cleanPhone,
+                name: name ? name.toString() : undefined
+            });
+        });
+
+        if (recipients.length === 0) {
+            cleanupUploadedFile(req);
+            throw new ValidationError('No valid recipients found in Excel file', errors);
+        }
+
+        // Check subscription limits
+        const user = await User.findById(req.user.id);
+        const totalRecipients = recipients.length;
+        
+        let messageLimit = 0;
+        if (user.purchasedPackages && user.purchasedPackages.length > 0) {
+            messageLimit = user.purchasedPackages.reduce((total, pkg) => {
+                return total + (pkg.messageLimit || 0);
+            }, 0);
+        }
+
+        if (messageLimit > 0 && totalRecipients > messageLimit) {
+            cleanupUploadedFile(req);
+            throw new BadRequestError(`Recipients count (${totalRecipients}) exceeds your subscription limit (${messageLimit})`);
+        }
+
+        // Save recipients
+        const recipientsWithCampaignId = recipients.map(recipient => ({
+            ...recipient,
+            campaignId: parseInt(campaignId)
+        }));
+        
+        await Recipient.createMany(recipientsWithCampaignId);
+
+        // Update campaign
+        await Campaign.update(campaignId, {
+            totalRecipients: recipients.length,
+            status: 'READY'
+        });
+
+        await websocketService.sendCampaignUpdate(campaignId, req.user.id);
+        cleanupUploadedFile(req);
+
+        res.json({
+            success: true,
+            message: "Recipients uploaded successfully",
+            recipientsCount: recipients.length,
+            warnings: errors.length > 0 ? errors : undefined,
+            campaign: {
+                id: campaignId,
+                status: 'READY',
+                totalRecipients: recipients.length
+            }
+        });
+    })
 ];
 
 // Upload temporary attachment
 exports.uploadTempAttachment = [
     tempUpload.single('attachment'),
-    async (req, res) => {
-        try {
-            if (!req.file) {
-                return res.status(400).json({ message: "Attachment file is required" });
-            }
-
-            res.json({
-                message: "Temporary attachment uploaded successfully",
-                file: {
-                    filename: req.file.filename,
-                    originalName: req.file.originalname,
-                    size: req.file.size,
-                    mimetype: req.file.mimetype,
-                    tempPath: req.file.path,
-                    url: `/api/temp-files/${req.file.filename}`
-                }
-            });
-
-        } catch (err) {
-            console.error(err);
-            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-                try {
-                    fs.unlinkSync(req.file.path);
-                } catch (error) {
-                    console.error('❌ Error deleting uploaded file:', error.message);
-                }
-            }
-            res.status(500).json({ message: "Server error", error: err.message });
+    asyncHandler(async (req, res) => {
+        if (!req.file) {
+            throw new BadRequestError('Attachment file is required');
         }
-    }
+
+        res.json({
+            success: true,
+            message: "Temporary attachment uploaded successfully",
+            file: {
+                filename: req.file.filename,
+                originalName: req.file.originalname,
+                size: req.file.size,
+                mimetype: req.file.mimetype,
+                tempPath: req.file.path,
+                url: `/api/temp-files/${req.file.filename}`
+            }
+        });
+    })
 ];
 
 // Upload permanent attachment
 exports.uploadAttachment = [
     permanentUpload.single('attachment'),
-    async (req, res) => {
-        try {
-            const { campaignId } = req.params;
-            
-            if (!req.file) {
-                return res.status(400).json({ message: "Attachment file is required" });
-            }
+    asyncHandler(async (req, res) => {
+        const { campaignId } = req.params;
+        
+        if (!req.file) {
+            throw new BadRequestError('Attachment file is required');
+        }
 
-            const campaign = await Campaign.findById(campaignId);
-            
-            if (!campaign) {
-                return res.status(404).json({ message: "Campaign not found" });
-            }
+        const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+        verifyCampaignNotRunning(campaign);
 
-            if (campaign.userId !== req.user.id) {
-                return res.status(403).json({ message: "Access denied" });
-            }
+        // Delete old attachments
+        const existingAttachments = await Attachment.findByCampaign(campaignId);
+        for (const attachment of existingAttachments) {
+            safeDeleteFile(attachment.path);
+            await Attachment.delete(attachment.id);
+        }
 
-            // Check if campaign is not running
-            if (campaign.status === 'RUNNING') {
-                return res.status(400).json({ 
-                    message: "Cannot upload attachment while campaign is running" 
-                });
-            }
+        // Create new attachment
+        const attachmentData = {
+            campaignId: parseInt(campaignId),
+            filename: req.file.filename,
+            originalName: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+            path: req.file.path
+        };
+        
+        await Attachment.create(attachmentData);
 
-            // Delete old attachments if exist
-            const existingAttachments = await Attachment.findByCampaign(campaignId);
-            for (const attachment of existingAttachments) {
-                if (fs.existsSync(attachment.path)) {
-                    try {
-                        fs.unlinkSync(attachment.path);
-                    } catch (error) {
-                        console.error('❌ Error deleting old attachment file:', error.message);
-                    }
-                }
-                await Attachment.delete(attachment.id);
-            }
-
-            // Create new attachment record
-            const attachmentData = {
-                campaignId: parseInt(campaignId),
+        res.json({
+            success: true,
+            message: "Attachment uploaded successfully",
+            attachment: {
                 filename: req.file.filename,
                 originalName: req.file.originalname,
-                mimetype: req.file.mimetype,
                 size: req.file.size,
-                path: req.file.path
-            };
-            
-            await Attachment.create(attachmentData);
-
-            res.json({
-                message: "Attachment uploaded successfully",
-                attachment: {
-                    filename: req.file.filename,
-                    originalName: req.file.originalname,
-                    size: req.file.size,
-                    mimetype: req.file.mimetype
-                },
-                campaign: {
-                    id: campaignId,
-                    status: 'READY'
-                }
-            });
-
-        } catch (err) {
-            console.error(err);
-            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-                try {
-                    fs.unlinkSync(req.file.path);
-                } catch (error) {
-                    console.error('❌ Error deleting uploaded file:', error.message);
-                }
-            }
-            res.status(500).json({ message: "Server error", error: err.message });
-        }
-    }
-];
-
-// Delete attachment
-exports.deleteAttachment = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        // Check if campaign is not running
-        if (campaign.status === 'RUNNING') {
-            return res.status(400).json({ 
-                message: "Cannot delete attachment while campaign is running" 
-            });
-        }
-
-        // Delete attachment file if exists
-        if (campaign.attachment && campaign.attachment.path) {
-            if (fs.existsSync(campaign.attachment.path)) {
-                try {
-                    fs.unlinkSync(campaign.attachment.path);
-                } catch (error) {
-                    console.error('❌ Error deleting attachment file:', error.message);
-                }
-            }
-        }
-
-        // Remove attachment from campaign
-        await Campaign.update(campaignId, {
-            attachment: null
-        });
-
-        res.json({
-            message: "Attachment deleted successfully",
-            campaign: {
-                id: campaignId,
-                attachment: null,
-                status: campaign.status
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
-
-// Get attachment details
-exports.getAttachmentDetails = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        if (!campaign.attachment) {
-            return res.json({
-                hasAttachment: false,
-                attachment: null
-            });
-        }
-
-        res.json({
-            hasAttachment: true,
-            attachment: {
-                filename: campaign.attachment.filename,
-                originalName: campaign.attachment.originalName,
-                size: campaign.attachment.size,
-                mimetype: campaign.attachment.mimetype,
-                uploadDate: campaign.updatedAt
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
-
-// Confirm attachment and move from temp to permanent
-exports.confirmAttachment = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        const { tempFilename } = req.body;
-        
-        if (!tempFilename) {
-            return res.status(400).json({ message: "Temporary filename is required" });
-        }
-
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        // Check if campaign is not running
-        if (campaign.status === 'RUNNING') {
-            return res.status(400).json({ 
-                message: "Cannot update attachment while campaign is running" 
-            });
-        }
-
-        const tempPath = path.join('uploads/temp', tempFilename);
-        
-        if (!fs.existsSync(tempPath)) {
-            return res.status(404).json({ message: "Temporary file not found" });
-        }
-
-        // Generate permanent filename
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const fileExtension = path.extname(tempFilename);
-        const permanentFilename = `attachment-${uniqueSuffix}${fileExtension}`;
-        const permanentPath = path.join('uploads', permanentFilename);
-
-        // Move file from temp to permanent location
-        fs.renameSync(tempPath, permanentPath);
-
-        // Get file stats
-        const stats = fs.statSync(permanentPath);
-
-        // Delete old attachment if exists
-        if (campaign.attachment && campaign.attachment.path) {
-            if (fs.existsSync(campaign.attachment.path)) {
-                try {
-                    fs.unlinkSync(campaign.attachment.path);
-                } catch (error) {
-                    console.error('❌ Error deleting old attachment file:', error.message);
-                }
-            }
-        }
-
-        // Update campaign with new attachment info
-        await Campaign.update(campaignId, {
-            attachment: {
-                filename: permanentFilename,
-                originalName: req.body.originalName || tempFilename,
-                mimetype: req.body.mimetype || 'application/octet-stream',
-                size: stats.size,
-                path: permanentPath
-            }
-        });
-
-        res.json({
-            message: "Attachment confirmed and saved successfully",
-            attachment: {
-                filename: permanentFilename,
-                originalName: req.body.originalName || tempFilename,
-                size: stats.size,
-                mimetype: req.body.mimetype || 'application/octet-stream'
+                mimetype: req.file.mimetype
             },
             campaign: {
                 id: campaignId,
                 status: 'READY'
             }
         });
+    })
+];
 
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+// Delete attachment
+exports.deleteAttachment = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+    verifyCampaignNotRunning(campaign);
+
+    // Get attachments
+    const attachments = await Attachment.findByCampaign(campaignId);
+    
+    // Delete attachment files
+    attachments.forEach(attachment => {
+        safeDeleteFile(attachment.path);
+    });
+
+    // Delete all attachments from database
+    await prisma.attachment.deleteMany({
+        where: { campaignId: parseInt(campaignId) }
+    });
+
+    res.json({
+        success: true,
+        message: "Attachment deleted successfully",
+        campaign: {
+            id: campaignId,
+            attachments: [],
+            status: campaign.status
+        }
+    });
+});
+
+// Get attachment details
+exports.getAttachmentDetails = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+
+    const attachments = await Attachment.findByCampaign(campaignId);
+    const attachment = attachments[0] || null;
+
+    if (!attachment) {
+        return res.json({
+            success: true,
+            hasAttachment: false,
+            attachment: null
+        });
     }
-};
+
+    res.json({
+        success: true,
+        hasAttachment: true,
+        attachment: {
+            filename: attachment.filename,
+            originalName: attachment.originalName,
+            size: attachment.size,
+            mimetype: attachment.mimetype,
+            uploadDate: attachment.createdAt
+        }
+    });
+});
+
+// Confirm attachment and move from temp to permanent
+exports.confirmAttachment = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    const { tempFilename } = req.body;
+    
+    if (!tempFilename) {
+        throw new BadRequestError('Temporary filename is required');
+    }
+
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+    verifyCampaignNotRunning(campaign);
+
+    const tempPath = path.join('uploads/temp', tempFilename);
+    
+    if (!fs.existsSync(tempPath)) {
+        throw new NotFoundError('Temporary file not found');
+    }
+
+    // Generate permanent filename
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const fileExtension = path.extname(tempFilename);
+    const permanentFilename = `attachment-${uniqueSuffix}${fileExtension}`;
+    const permanentPath = path.join('uploads', permanentFilename);
+
+    // Move file from temp to permanent location
+    fs.renameSync(tempPath, permanentPath);
+
+    // Get file stats
+    const stats = fs.statSync(permanentPath);
+
+    // Delete old attachments
+    const existingAttachments = await Attachment.findByCampaign(campaignId);
+    existingAttachments.forEach(attachment => {
+        safeDeleteFile(attachment.path);
+    });
+    await prisma.attachment.deleteMany({
+        where: { campaignId: parseInt(campaignId) }
+    });
+
+    // Create new attachment
+    await Attachment.create({
+        campaignId: parseInt(campaignId),
+        filename: permanentFilename,
+        originalName: req.body.originalName || tempFilename,
+        mimetype: req.body.mimetype || 'application/octet-stream',
+        size: stats.size,
+        path: permanentPath
+    });
+
+    res.json({
+        success: true,
+        message: "Attachment confirmed and saved successfully",
+        attachment: {
+            filename: permanentFilename,
+            originalName: req.body.originalName || tempFilename,
+            size: stats.size,
+            mimetype: req.body.mimetype || 'application/octet-stream'
+        },
+        campaign: {
+            id: campaignId,
+            status: 'READY'
+        }
+    });
+});
 
 // Serve temporary files
 exports.serveTempFile = async (req, res) => {
@@ -707,16 +542,20 @@ exports.getCampaignPreview = async (req, res) => {
             });
         }
 
+        // Get attachments
+        const attachments = await Attachment.findByCampaign(campaignId);
+        const attachment = attachments[0] || null;
+
         // Prepare recipients cards for preview
         const recipientCards = campaign.recipients.map((recipient, index) => ({
             id: index + 1,
             phone: recipient.phone,
             name: recipient.name || 'بدون نام',
             message: campaign.message,
-            attachment: campaign.attachment ? {
-                filename: campaign.attachment.originalName,
-                size: campaign.attachment.size,
-                type: campaign.attachment.mimetype
+            attachment: attachment ? {
+                filename: attachment.originalName,
+                size: attachment.size,
+                type: attachment.mimetype
             } : null
         }));
 
@@ -726,11 +565,11 @@ exports.getCampaignPreview = async (req, res) => {
             message: campaign.message,
             totalRecipients: campaign.recipients.length,
             interval: campaign.interval,
-            hasAttachment: !!campaign.attachment,
-            attachment: campaign.attachment ? {
-                filename: campaign.attachment.originalName,
-                size: campaign.attachment.size,
-                type: campaign.attachment.mimetype
+            hasAttachment: !!attachment,
+            attachment: attachment ? {
+                filename: attachment.originalName,
+                size: attachment.size,
+                type: attachment.mimetype
             } : null,
             whatsappConnected: campaign.whatsappSession?.isConnected || false,
             status: campaign.status
@@ -786,7 +625,7 @@ exports.getCampaignStepStatus = async (req, res) => {
             },
             step3: {
                 name: "آپلود فایل ضمیمه (اختیاری)",
-                completed: !!campaign.attachment,
+                completed: campaign.attachments && campaign.attachments.length > 0,
                 canNavigate: campaign.recipients && campaign.recipients.length > 0,
                 optional: true
             },
@@ -895,7 +734,7 @@ exports.navigateToStep = async (req, res) => {
                 status: campaign.status,
                 message: campaign.message,
                 recipients: campaign.recipients?.length || 0,
-                attachment: campaign.attachment,
+                attachments: campaign.attachments || [],
                 interval: campaign.interval,
                 whatsappConnected: campaign.whatsappSession?.isConnected || false
             }
@@ -992,47 +831,48 @@ exports.resetToStep = async (req, res) => {
         // Reset data based on step
         switch (step) {
             case 1:
-                // Reset everything
+                // Reset everything - delete attachments
+                await prisma.attachment.deleteMany({
+                    where: { campaignId: parseInt(campaignId) }
+                });
                 await Campaign.update(campaignId, {
                     message: null,
-                    recipients: [],
-                    attachment: null,
-                    interval: '10s',
-                    whatsappSessionConnected: false,
+                    interval: 'TEN_SECONDS',
+                    isConnected: false,
                     status: 'DRAFT'
                 });
                 break;
             case 2:
                 // Reset from step 2 onwards
                 await Campaign.update(campaignId, {
-                    recipients: [],
-                    attachment: null,
-                    interval: '10s',
-                    whatsappSessionConnected: false,
+                    interval: 'TEN_SECONDS',
+                    isConnected: false,
                     status: 'DRAFT'
                 });
                 break;
             case 3:
-                // Reset from step 3 onwards
+                // Reset from step 3 onwards - delete attachments
+                await prisma.attachment.deleteMany({
+                    where: { campaignId: parseInt(campaignId) }
+                });
                 await Campaign.update(campaignId, {
-                    attachment: null,
-                    interval: '10s',
-                    whatsappSessionConnected: false,
+                    interval: 'TEN_SECONDS',
+                    isConnected: false,
                     status: 'READY'
                 });
                 break;
             case 4:
                 // Reset from step 4 onwards
                 await Campaign.update(campaignId, {
-                    interval: '10s',
-                    whatsappSessionConnected: false,
+                    interval: 'TEN_SECONDS',
+                    isConnected: false,
                     status: 'READY'
                 });
                 break;
             case 5:
                 // Reset from step 5 onwards
                 await Campaign.update(campaignId, {
-                    whatsappSessionConnected: false,
+                    isConnected: false,
                     status: 'READY'
                 });
                 break;
@@ -1044,16 +884,20 @@ exports.resetToStep = async (req, res) => {
                 break;
         }
 
+        const updatedCampaign = await Campaign.findById(campaignId);
+        const campaignAttachments = await Attachment.findByCampaign(campaignId);
+
         res.json({
+            success: true,
             message: `Campaign reset to step ${step}`,
             campaign: {
-                id: campaign.id,
-                status: campaign.status,
-                message: campaign.message,
-                recipients: campaign.recipients?.length || 0,
-                attachment: campaign.attachment,
-                interval: campaign.interval,
-                whatsappConnected: campaign.whatsappSession?.isConnected || false
+                id: updatedCampaign.id,
+                status: updatedCampaign.status,
+                message: updatedCampaign.message,
+                recipients: updatedCampaign.recipients?.length || 0,
+                attachments: campaignAttachments,
+                interval: updatedCampaign.interval,
+                whatsappConnected: updatedCampaign.isConnected || false
             }
         });
 
@@ -1147,369 +991,237 @@ exports.cancelScheduledCampaign = async (req, res) => {
 };
 
 // Generate WhatsApp QR code
-exports.generateQRCode = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
+exports.generateQRCode = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
 
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
+    // Clean up any existing session for this campaign first
+    whatsappService.cleanupSession(campaignId);
 
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
+    // Generate unique session ID
+    const sessionId = uuidv4();
 
-        // Clean up any existing session for this campaign first
-        console.log(`🧹 Cleaning up existing session for campaign ${campaignId}`);
-        whatsappService.cleanupSession(campaignId);
+    // Update campaign with sessionId in database
+    await Campaign.update(campaignId, {
+        sessionId: sessionId,
+        status: 'READY',
+        isConnected: false
+    });
 
-        // Generate unique session ID
-        const sessionId = uuidv4();
-        
-        // Update campaign with WhatsApp session info
-        campaign.whatsappSession = {
-            isConnected: false,
-            sessionId: sessionId,
-            lastActivity: new Date()
-        };
+    // Initialize WhatsApp session with timeout
+    await whatsappService.prepareWhatsAppSessions([campaign], req.user.id);
 
-        await Campaign.update(campaignId, {
-            status: 'READY'
-        });
-
-        // Initialize WhatsApp session with timeout
-        console.log(`📱 Initializing new WhatsApp session for campaign ${campaignId}`);
-        await whatsappService.prepareWhatsAppSessions([campaign], req.user.id);
-
-        res.json({
-            message: "QR code generation initiated",
-            sessionId: sessionId,
-            instructions: "WhatsApp session is being prepared. QR code will be sent via WebSocket."
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
+    res.json({
+        success: true,
+        message: "QR code generation initiated",
+        sessionId: sessionId,
+        instructions: "WhatsApp session is being prepared. QR code will be sent via WebSocket."
+    });
+});
 
 // Check WhatsApp connection status
-exports.checkConnection = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
+exports.checkConnection = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
 
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        // Check if there's an active session in memory
-        const hasActiveSession = whatsappService.hasActiveSession(campaignId);
-
-        res.json({
-            isConnected: campaign.whatsappSessionConnected,
-            lastActivity: campaign.whatsappSessionLastActivity,
-            hasActiveSession: hasActiveSession,
-            sessionId: campaign.sessionId
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+    // Check if there's an active session in memory
+    const hasActiveSession = whatsappService.hasActiveSession(campaignId);
+    
+    // Get sessionId from database first, then from memory if exists
+    let sessionId = campaign.sessionId;
+    
+    // If no sessionId in DB but has active session, get it from memory
+    if (!sessionId && hasActiveSession) {
+        sessionId = whatsappService.getSessionId(campaignId);
     }
-};
+
+    res.json({
+        success: true,
+        isConnected: campaign.isConnected || false,
+        lastActivity: campaign.lastActivity || null,
+        hasActiveSession: hasActiveSession,
+        sessionId: sessionId
+    });
+});
 
 // Force cleanup WhatsApp session
-exports.forceCleanupSession = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
+exports.forceCleanupSession = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
 
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
+    // Force cleanup session
+    whatsappService.cleanupSession(campaignId);
 
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
+    // Reset campaign WhatsApp session in database
+    await Campaign.update(campaignId, {
+        sessionId: null,
+        isConnected: false,
+        status: 'READY',
+        lastActivity: null
+    });
 
-        // Force cleanup session
-        whatsappService.cleanupSession(campaignId);
-
-        // Reset campaign WhatsApp session
-        campaign.whatsappSession = {
-            isConnected: false,
-            sessionId: null,
-            lastActivity: null
-        };
-        await Campaign.update(campaignId, {
-            status: 'READY'
-        });
-
-        res.json({
-            message: "Session cleaned up successfully",
-            campaignId: campaignId
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
+    res.json({
+        success: true,
+        message: "Session cleaned up successfully",
+        campaignId: campaignId
+    });
+});
 
 // Start campaign
-exports.startCampaign = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
+exports.startCampaign = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+    verifyCampaignReady(campaign);
+    verifyCampaignHasRecipients(campaign);
+
+    await whatsappService.handleStartCampaign(campaignId, req.user.id);
+
+    res.json({
+        success: true,
+        message: "Campaign started successfully",
+        campaign: {
+            id: campaign.id,
+            status: 'RUNNING',
+            totalRecipients: campaign.totalRecipients,
+            startedAt: new Date()
         }
-
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.status !== 'READY') {
-            return res.status(400).json({ 
-                message: "Campaign is not ready to start" 
-            });
-        }
-
-        // if (!campaign.whatsappSessionConnected) {
-        //     return res.status(400).json({ 
-        //         message: "WhatsApp account is not connected" 
-        //     });
-        // }
-
-        if (campaign.recipients.length === 0) {
-            return res.status(400).json({ 
-                message: "No recipients found" 
-            });
-        }
-
-        // Start WhatsApp campaign
-        await whatsappService.handleStartCampaign(campaignId, req.user.id);
-
-        res.json({
-            message: "Campaign started successfully",
-            campaign: {
-                id: campaign.id,
-                status: 'RUNNING',
-                totalRecipients: campaign.totalRecipients,
-                startedAt: new Date()
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
+    });
+});
 
 // Pause campaign
-exports.pauseCampaign = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.status !== 'RUNNING') {
-            return res.status(400).json({ 
-                message: "Campaign is not running" 
-            });
-        }
-
-        // Pause campaign
-        await whatsappService.handleStopCampaign(campaignId, 'PAUSED', req.user.id);
-
-        res.json({
-            message: "Campaign paused successfully",
-            campaign: {
-                id: campaign.id,
-                status: 'PAUSED'
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+exports.pauseCampaign = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+    
+    if (campaign.status !== 'RUNNING') {
+        throw new BadRequestError('Campaign is not running');
     }
-};
+
+    await whatsappService.handleStopCampaign(campaignId, 'PAUSED', req.user.id);
+
+    res.json({
+        success: true,
+        message: "Campaign paused successfully",
+        campaign: {
+            id: campaign.id,
+            status: 'PAUSED'
+        }
+    });
+});
 
 // Resume campaign
-exports.resumeCampaign = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.status !== 'PAUSED') {
-            return res.status(400).json({ 
-                message: "Campaign is not paused" 
-            });
-        }
-
-        // Resume campaign
-        await whatsappService.handleStartCampaign(campaignId, req.user.id);
-
-        res.json({
-            message: "Campaign resumed successfully",
-            campaign: {
-                id: campaign.id,
-                status: 'RUNNING'
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+exports.resumeCampaign = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+    
+    if (campaign.status !== 'PAUSED') {
+        throw new BadRequestError('Campaign is not paused');
     }
-};
+
+    await whatsappService.handleStartCampaign(campaignId, req.user.id);
+
+    res.json({
+        success: true,
+        message: "Campaign resumed successfully",
+        campaign: {
+            id: campaign.id,
+            status: 'RUNNING'
+        }
+    });
+});
 
 // Get user's campaigns
-exports.getMyCampaigns = async (req, res) => {
-    try {
-        const { 
-            status, 
-            title, 
-            startDate, 
-            endDate, 
-            page = 1, 
-            limit = 10,
-            sortBy = 'createdAt',
-            sortOrder = 'desc'
-        } = req.query;
-        
-        const filter = { userId: parseInt(req.user.id) };
-        
-        // Filter by status
-        if (status) {
-            if (Array.isArray(status)) {
-                filter.status = { in: status.map(s => s.trim()) };
-            } else {
-                filter.status = status.trim();
-            }
+exports.getMyCampaigns = asyncHandler(async (req, res) => {
+    const {
+        status,
+        title,
+        startDate,
+        endDate,
+        page = 1,
+        limit = 10,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
+    } = req.query;
+    
+    const filter = { userId: parseInt(req.user.id) };
+    
+    // Filter by status
+    if (status) {
+        if (Array.isArray(status)) {
+            filter.status = { in: status.map(s => s.trim()) };
+        } else {
+            filter.status = status.trim();
         }
-        
-        // Filter by title (case-insensitive search)
-        if (title) {
-            // تبدیل به string برای جلوگیری از کرش
-            const titleStr = String(title);
-            filter.title = { contains: titleStr };
-        }
-        
-        // Filter by date range
-        if (startDate || endDate) {
-            filter.createdAt = {};
-            if (startDate) {
-                filter.createdAt.gte = new Date(startDate);
-            }
-            if (endDate) {
-                filter.createdAt.lte = new Date(endDate);
-            }
-        }
-
-        // Sort options
-        const sortOptions = {
-            'createdAt': { createdAt: sortOrder === 'desc' ? 'desc' : 'asc' },
-            'updatedAt': { updatedAt: sortOrder === 'desc' ? 'desc' : 'asc' },
-            'title': { title: sortOrder === 'desc' ? 'desc' : 'asc' },
-            'status': { status: sortOrder === 'desc' ? 'desc' : 'asc' },
-            'totalRecipients': { totalRecipients: sortOrder === 'desc' ? 'desc' : 'asc' },
-            'sentCount': { sentCount: sortOrder === 'desc' ? 'desc' : 'asc' }
-        };
-
-        const orderBy = sortOptions[sortBy] || sortOptions['createdAt'];
-
-        const pagination = { 
-            page: parseInt(page) || 1, 
-            limit: parseInt(limit) || 10 
-        };
-        const campaigns = await Campaign.findAll(filter, pagination, orderBy);
-        
-        // Get total count for pagination
-        const total = await prisma.campaign.count({ where: filter });
-
-        res.json({
-            campaigns,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                pages: Math.ceil(total / limit)
-            },
-            filters: {
-                status: status || null,
-                title: title || null,
-                startDate: startDate || null,
-                endDate: endDate || null
-            },
-            sorting: {
-                sortBy: sortBy || 'createdAt',
-                sortOrder: sortOrder || 'desc'
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
     }
-};
+    
+    // Filter by title
+    if (title) {
+        const titleStr = String(title);
+        filter.title = { contains: titleStr };
+    }
+    
+    // Filter by date range
+    if (startDate || endDate) {
+        filter.createdAt = {};
+        if (startDate) {
+            filter.createdAt.gte = new Date(startDate);
+        }
+        if (endDate) {
+            filter.createdAt.lte = new Date(endDate);
+        }
+    }
+
+    // Sort options
+    const sortOptions = {
+        'createdAt': { createdAt: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'updatedAt': { updatedAt: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'title': { title: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'status': { status: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'totalRecipients': { totalRecipients: sortOrder === 'desc' ? 'desc' : 'asc' },
+        'sentCount': { sentCount: sortOrder === 'desc' ? 'desc' : 'asc' }
+    };
+
+    const orderBy = sortOptions[sortBy] || sortOptions['createdAt'];
+
+    const pagination = { 
+        page: parseInt(page) || 1, 
+        limit: parseInt(limit) || 10 
+    };
+    const campaigns = await Campaign.findAll(filter, pagination, orderBy);
+    
+    // Get total count for pagination
+    const total = await prisma.campaign.count({ where: filter });
+
+    res.json({
+        success: true,
+        campaigns,
+        pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            pages: Math.ceil(total / limit)
+        },
+        filters: {
+            status: status || null,
+            title: title || null,
+            startDate: startDate || null,
+            endDate: endDate || null
+        },
+        sorting: {
+            sortBy: sortBy || 'createdAt',
+            sortOrder: sortOrder || 'desc'
+        }
+    });
+});
 
 // Search campaigns with advanced filters
-exports.searchCampaigns = async (req, res) => {
-    try {
+exports.searchCampaigns = asyncHandler(async (req, res) => {
         const { 
             query,
             status, 
@@ -1569,30 +1281,26 @@ exports.searchCampaigns = async (req, res) => {
         // Get total count for pagination
         const total = await prisma.campaign.count({ where: filter });
 
-        res.json({
-            campaigns,
-            pagination: {
-                page: parseInt(page),
-                limit: parseInt(limit),
-                total,
-                pages: Math.ceil(total / limit)
-            },
-            filters: {
-                query: query || null,
-                status: status || null,
-                title: title || null,
-                startDate: startDate || null,
-                endDate: endDate || null,
-                sortBy,
-                sortOrder
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
+    res.json({
+        success: true,
+        campaigns,
+        pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total,
+            pages: Math.ceil(total / limit)
+        },
+        filters: {
+            query: query || null,
+            status: status || null,
+            title: title || null,
+            startDate: startDate || null,
+            endDate: endDate || null,
+            sortBy,
+            sortOrder
+        }
+    });
+});
 
 // Get campaign details with optional includes
 exports.getCampaignDetails = async (req, res) => {
@@ -2072,252 +1780,161 @@ exports.downloadMultipleReports = async (req, res) => {
 };
 
 // Delete campaign
-exports.deleteCampaign = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
+exports.deleteCampaign = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+    verifyCampaignNotRunning(campaign);
 
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
+    // Delete attachment files
+    const attachments = await Attachment.findByCampaign(campaignId);
+    attachments.forEach(attachment => {
+        safeDeleteFile(attachment.path);
+    });
+    await prisma.attachment.deleteMany({
+        where: { campaignId: parseInt(campaignId) }
+    });
 
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
+    await Campaign.delete(campaignId);
 
-        if (campaign.status === 'RUNNING') {
-            return res.status(400).json({ 
-                message: "Cannot delete running campaign" 
-            });
-        }
-
-        // Delete attachment file if exists
-        if (campaign.attachment && campaign.attachment.path) {
-            if (fs.existsSync(campaign.attachment.path)) {
-                fs.unlinkSync(campaign.attachment.path);
-            }
-        }
-
-        await Campaign.delete(campaignId);
-
-        res.json({
-            message: "Campaign deleted successfully"
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
-    }
-};
+    res.json({
+        success: true,
+        message: "Campaign deleted successfully"
+    });
+});
 
 // Set campaign interval
-exports.setCampaignInterval = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        const { interval, sendType, scheduledAt, timezone } = req.body;
-        
-        // Validate interval
-        const validIntervals = ['5s', '10s', '20s'];
-        if (interval && !validIntervals.includes(interval)) {
-            return res.status(400).json({ 
-                message: "Invalid interval. Must be one of: 5s, 10s, 20s" 
-            });
-        }
-
-        // Validate sendType
-        if (sendType && !['immediate', 'scheduled', 'IMMEDIATE', 'SCHEDULED'].includes(sendType)) {
-            return res.status(400).json({ 
-                message: "Invalid sendType. Must be 'immediate' or 'scheduled'." 
-            });
-        }
-
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ message: "Access denied" });
-        }
-
-        if (!campaign) {
-            return res.status(404).json({ message: "Campaign not found" });
-        }
-
-        if (campaign.status === 'RUNNING') {
-            return res.status(400).json({ 
-                message: "Cannot modify running campaign" 
-            });
-        }
-
-        // Validate scheduled time
-        if (sendType === 'scheduled' || sendType === 'SCHEDULED') {
-            if (!scheduledAt) {
-                return res.status(400).json({ 
-                    message: "scheduledAt is required for scheduled campaigns" 
-                });
-            }
-
-            const scheduledDate = new Date(scheduledAt);
-            const now = new Date();
-            
-            if (scheduledDate <= now) {
-                return res.status(400).json({ 
-                    message: "Scheduled time must be in the future" 
-                });
-            }
-
-            // Check if scheduled time is not too far in the future (e.g., 1 year)
-            const oneYearFromNow = new Date();
-            oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-            
-            if (scheduledDate > oneYearFromNow) {
-                return res.status(400).json({ 
-                    message: "Scheduled time cannot be more than 1 year in the future" 
-                });
-            }
-        }
-
-        // Convert sendType to uppercase for Prisma
-        const normalizedSendType = sendType?.toUpperCase() || 'IMMEDIATE';
-        
-        // Convert interval to enum for Prisma
-        let normalizedInterval = null;
-        if (interval) {
-            switch (interval.toLowerCase()) {
-                case '5s':
-                    normalizedInterval = 'FIVE_SECONDS';
-                    break;
-                case '10s':
-                    normalizedInterval = 'TEN_SECONDS';
-                    break;
-                case '20s':
-                    normalizedInterval = 'TWENTY_SECONDS';
-                    break;
-                default:
-                    normalizedInterval = 'TEN_SECONDS'; // default
-            }
-        }
-        
-        // Update campaign settings
-        const updateData = {
-            isScheduled: normalizedSendType === 'SCHEDULED',
-            scheduledAt: normalizedSendType === 'SCHEDULED' ? new Date(scheduledAt) : null,
-            timezone: timezone || 'Asia/Tehran',
-            sendType: normalizedSendType
-        };
-        
-        if (normalizedInterval) updateData.interval = normalizedInterval;
-        
-        await Campaign.update(campaignId, updateData);
-
-        res.json({
-            message: "Campaign settings updated successfully",
-            campaign: {
-                id: campaign.id,
-                interval: campaign.interval,
-                schedule: {
-                    isScheduled: campaign.isScheduled,
-                    scheduledAt: campaign.scheduledAt,
-                    timezone: campaign.timezone,
-                    sendType: campaign.sendType
-                },
-                status: campaign.status
-            }
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+exports.setCampaignInterval = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    const { interval, sendType, scheduledAt, timezone } = req.body;
+    
+    // Validate interval
+    const validIntervals = ['5s', '10s', '20s'];
+    if (interval && !validIntervals.includes(interval)) {
+        throw new BadRequestError("Invalid interval. Must be one of: 5s, 10s, 20s");
     }
-};
+
+    // Validate sendType
+    if (sendType && !['immediate', 'scheduled', 'IMMEDIATE', 'SCHEDULED'].includes(sendType)) {
+        throw new BadRequestError("Invalid sendType. Must be 'immediate' or 'scheduled'.");
+    }
+
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+    verifyCampaignNotRunning(campaign);
+
+    // Validate scheduled time
+    if (sendType === 'scheduled' || sendType === 'SCHEDULED') {
+        if (!scheduledAt) {
+            throw new BadRequestError("scheduledAt is required for scheduled campaigns");
+        }
+
+        const scheduledDate = new Date(scheduledAt);
+        const now = new Date();
+        
+        if (scheduledDate <= now) {
+            throw new BadRequestError("Scheduled time must be in the future");
+        }
+
+        // Check if scheduled time is not too far in the future (e.g., 1 year)
+        const oneYearFromNow = new Date();
+        oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+        
+        if (scheduledDate > oneYearFromNow) {
+            throw new BadRequestError("Scheduled time cannot be more than 1 year in the future");
+        }
+    }
+
+    // Convert sendType to uppercase for Prisma
+    const normalizedSendType = sendType?.toUpperCase() || 'IMMEDIATE';
+    
+    // Convert interval to enum for Prisma
+    let normalizedInterval = null;
+    if (interval) {
+        switch (interval.toLowerCase()) {
+            case '5s':
+                normalizedInterval = 'FIVE_SECONDS';
+                break;
+            case '10s':
+                normalizedInterval = 'TEN_SECONDS';
+                break;
+            case '20s':
+                normalizedInterval = 'TWENTY_SECONDS';
+                break;
+            default:
+                normalizedInterval = 'TEN_SECONDS';
+        }
+    }
+    
+    // Update campaign settings
+    const updateData = {
+        isScheduled: normalizedSendType === 'SCHEDULED',
+        scheduledAt: normalizedSendType === 'SCHEDULED' ? new Date(scheduledAt) : null,
+        timezone: timezone || 'Asia/Tehran',
+        sendType: normalizedSendType
+    };
+    
+    if (normalizedInterval) updateData.interval = normalizedInterval;
+    
+    const updatedCampaign = await Campaign.update(campaignId, updateData);
+
+    res.json({
+        success: true,
+        message: "Campaign settings updated successfully",
+        campaign: {
+            id: updatedCampaign.id,
+            interval: updatedCampaign.interval,
+            schedule: {
+                isScheduled: updatedCampaign.isScheduled,
+                scheduledAt: updatedCampaign.scheduledAt,
+                timezone: updatedCampaign.timezone,
+                sendType: updatedCampaign.sendType
+            },
+            status: updatedCampaign.status
+        }
+    });
+});
 
 // Get subscription info
-exports.getSubscriptionInfo = async (req, res) => {
-    try {
-        // This middleware should be called before this controller
-        if (!req.subscriptionInfo) {
-            return res.status(500).json({ message: "Subscription info not available" });
-        }
-
-        res.json({
-            subscription: req.subscriptionInfo
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: "Server error", error: err.message });
+exports.getSubscriptionInfo = asyncHandler(async (req, res) => {
+    if (!req.subscriptionInfo) {
+        throw new BadRequestError("Subscription info not available");
     }
-};
+
+    res.json({
+        success: true,
+        subscription: req.subscriptionInfo
+    });
+});
 
 // Update campaign title
-exports.updateCampaignTitle = async (req, res) => {
-    try {
-        const { campaignId } = req.params;
-        const { title } = req.body;
-        
-        // Validate input
-        if (!title || title.trim().length === 0) {
-            return res.status(400).json({ 
-                message: "Title is required" 
-            });
-        }
-        
-        if (title.trim().length > 100) {
-            return res.status(400).json({ 
-                message: "Title must be less than 100 characters" 
-            });
-        }
-        
-        // Find campaign
-        const campaign = await Campaign.findById(campaignId);
-        
-        if (!campaign) {
-            return res.status(404).json({ 
-                message: "Campaign not found" 
-            });
-        }
-        
-        // Check ownership
-        if (campaign.userId !== req.user.id) {
-            return res.status(403).json({ 
-                message: "Access denied" 
-            });
-        }
-        
-        // Check if campaign is not running
-        if (campaign.status === 'RUNNING') {
-            return res.status(400).json({ 
-                message: "Cannot update title while campaign is running" 
-            });
-        }
-        
-        // Update title
-        const updatedCampaign = await Campaign.update(campaignId, {
-            title: title.trim(),
-            updatedAt: new Date()
-        });
-        
-        res.json({
-            message: "Campaign title updated successfully",
-            campaign: {
-                id: updatedCampaign.id,
-                title: updatedCampaign.title,
-                status: updatedCampaign.status
-            }
-        });
-        
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ 
-            message: "Server error", 
-            error: err.message 
-        });
+exports.updateCampaignTitle = asyncHandler(async (req, res) => {
+    const { campaignId } = req.params;
+    const { title } = req.body;
+    
+    // Validate input
+    if (!title || title.trim().length === 0) {
+        throw new BadRequestError("Title is required");
     }
-};
+    
+    if (title.trim().length > 100) {
+        throw new BadRequestError("Title must be less than 100 characters");
+    }
+    
+    const campaign = await verifyCampaignAccess(campaignId, req.user.id);
+    verifyCampaignNotRunning(campaign);
+    
+    // Update title
+    const updatedCampaign = await Campaign.update(campaignId, {
+        title: title.trim()
+    });
+    
+    res.json({
+        success: true,
+        message: "Campaign title updated successfully",
+        campaign: {
+            id: updatedCampaign.id,
+            title: updatedCampaign.title,
+            status: updatedCampaign.status
+        }
+    });
+});

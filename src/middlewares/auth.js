@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
+const { UnauthorizedError } = require("../utils/errors");
 
 // Helper for conditional logging
 const isDev = process.env.NODE_ENV === 'development';
@@ -31,10 +32,7 @@ exports.authenticateJwt = async (req, res, next) => {
     try {
         const token = extractToken(req);
         if (!token) {
-            return res.status(401).json({ 
-                message: "Authorization token missing",
-                hint: "Provide token in Authorization header or ensure user is logged in via session"
-            });
+            throw new UnauthorizedError("Authorization token missing");
         }
 
         const jwtSecret = process.env.JWT_SECRET || 'fallback-jwt-secret-please-set-in-env';
@@ -44,12 +42,15 @@ exports.authenticateJwt = async (req, res, next) => {
         
         const payload = jwt.verify(token, jwtSecret);
         const user = await User.findById(payload.id);
-        if (!user) return res.status(401).json({ message: "User not found" });
+        if (!user) throw new UnauthorizedError("User not found");
 
         req.user = user;
         next();
     } catch (err) {
-        return res.status(401).json({ message: "Invalid or expired token" });
+        if (err instanceof UnauthorizedError) {
+            throw err;
+        }
+        throw new UnauthorizedError("Invalid or expired token");
     }
 };
 

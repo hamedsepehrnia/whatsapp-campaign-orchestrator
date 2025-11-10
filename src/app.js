@@ -69,21 +69,11 @@ app.get('/test', (req, res) => {
     res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
 });
 
-// Test API route
-app.post('/test-api', (req, res) => {
-    res.json({ 
-        message: 'Test API is working!', 
-        body: req.body,
-        timestamp: new Date().toISOString() 
-    });
-});
+// 404 handler - must be after all routes
+const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
+app.use(notFoundHandler);
 
-// Centralized error handler
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-    const status = err.status || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({message});
-});
+// Error handler - must be last
+app.use(errorHandler);
 
 module.exports = app;

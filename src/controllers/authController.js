@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 const { RefreshToken } = require('../models');
 const { v4: uuidv4 } = require('uuid');
+const { asyncHandler } = require('../middlewares/errorHandler');
+const { UnauthorizedError, BadRequestError } = require('../utils/errors');
 
 // Generate JWT token (short-lived)
 const generateAccessToken = (user) => {
@@ -28,139 +30,113 @@ const generateRefreshToken = async (user) => {
 };
 
 // Login with Refresh Token
-exports.login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        
-        // Find user
-        const user = await User.findByEmail(email);
-        if (!user) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-        
-        // Check password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-        
-        // Generate tokens
-        const accessToken = generateAccessToken(user);
-        const refreshToken = await generateRefreshToken(user);
-        
-        // Store JWT token in session for frontend convenience
-        if (req.session) {
-            req.session.token = accessToken;
-            req.session.jwt = accessToken;
-            req.session.userId = user.id;
-            req.session.userRole = user.role;
-        }
-        
-        res.json({
-            message: 'Login successful',
-            accessToken,
-            refreshToken,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                profile: user.profile
-            }
-        });
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        res.status(500).json({ message: 'Server error' });
+exports.login = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    
+    const user = await User.findByEmail(email);
+    if (!user) {
+        throw new UnauthorizedError('Invalid credentials');
     }
-};
+    
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        throw new UnauthorizedError('Invalid credentials');
+    }
+    
+    const accessToken = generateAccessToken(user);
+    const refreshToken = await generateRefreshToken(user);
+    
+    if (req.session) {
+        req.session.token = accessToken;
+        req.session.jwt = accessToken;
+        req.session.userId = user.id;
+        req.session.userRole = user.role;
+    }
+    
+    res.json({
+        success: true,
+        message: 'Login successful',
+        accessToken,
+        refreshToken,
+        user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            profile: user.profile
+        }
+    });
+});
 
 // Refresh Access Token
-exports.refreshToken = async (req, res) => {
-    try {
-        const { refreshToken } = req.body;
-        
-        if (!refreshToken) {
-            return res.status(401).json({ message: 'Refresh token required' });
-        }
-        
-        // Find refresh token in database
-        const tokenRecord = await RefreshToken.findByToken(refreshToken);
-        
-        if (!tokenRecord) {
-            return res.status(401).json({ message: 'Invalid refresh token' });
-        }
-        
-        // Check if token is expired
-        if (tokenRecord.expiresAt < new Date()) {
-            await RefreshToken.delete(tokenRecord.id);
-            return res.status(401).json({ message: 'Refresh token expired' });
-        }
-        
-        // Generate new access token
-        const newAccessToken = generateAccessToken(tokenRecord.user);
-        
-        res.json({
-            message: 'Token refreshed successfully',
-            accessToken: newAccessToken
-        });
-        
-    } catch (error) {
-        console.error('Refresh token error:', error);
-        res.status(500).json({ message: 'Server error' });
+exports.refreshToken = asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+        throw new BadRequestError('Refresh token required');
     }
-};
+    
+    const tokenRecord = await RefreshToken.findByToken(refreshToken);
+    
+    if (!tokenRecord) {
+        throw new UnauthorizedError('Invalid refresh token');
+    }
+    
+    if (tokenRecord.expiresAt < new Date()) {
+        await RefreshToken.delete(tokenRecord.id);
+        throw new UnauthorizedError('Refresh token expired');
+    }
+    
+    const newAccessToken = generateAccessToken(tokenRecord.user);
+    
+    res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        accessToken: newAccessToken
+    });
+});
 
 // Logout (revoke refresh token)
-exports.logout = async (req, res) => {
-    try {
-        const { refreshToken } = req.body;
-        
-        if (refreshToken) {
-            const tokenRecord = await RefreshToken.findByToken(refreshToken);
-            if (tokenRecord) {
-                await RefreshToken.update(tokenRecord.id, { isRevoked: true });
-            }
+exports.logout = asyncHandler(async (req, res) => {
+    const { refreshToken } = req.body;
+    
+    if (refreshToken) {
+        const tokenRecord = await RefreshToken.findByToken(refreshToken);
+        if (tokenRecord) {
+            await RefreshToken.update(tokenRecord.id, { isRevoked: true });
         }
-        
-        // Clear session data
-        if (req.session) {
-            req.session.destroy((err) => {
-                if (err) {
-                    console.error('Session destroy error:', err);
-                }
-            });
-        }
-        
-        res.json({ message: 'Logout successful' });
-        
-    } catch (error) {
-        console.error('Logout error:', error);
-        res.status(500).json({ message: 'Server error' });
     }
-};
+    
+    if (req.session) {
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('Session destroy error:', err);
+            }
+        });
+    }
+    
+    res.json({ 
+        success: true,
+        message: 'Logout successful' 
+    });
+});
 
 // Logout from all devices
-exports.logoutAll = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        
-        // Revoke all refresh tokens for this user
-        await RefreshToken.revokeAllForUser(userId);
-        
-        // Clear current session
-        if (req.session) {
-            req.session.destroy((err) => {
-                if (err) {
-                    console.error('Session destroy error:', err);
-                }
-            });
-        }
-        
-        res.json({ message: 'Logged out from all devices' });
-        
-    } catch (error) {
-        console.error('Logout all error:', error);
-        res.status(500).json({ message: 'Server error' });
+exports.logoutAll = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    
+    await RefreshToken.revokeAllForUser(userId);
+    
+    if (req.session) {
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('Session destroy error:', err);
+            }
+        });
     }
-};
+    
+    res.json({ 
+        success: true,
+        message: 'Logged out from all devices' 
+    });
+});

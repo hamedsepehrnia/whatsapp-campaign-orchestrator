@@ -12,6 +12,8 @@
     "test:all": "node tests/test-all-apis.js",
     "check-env": "node scripts/check-env.js",
     "make-admin": "node scripts/make-admin.js",
+    "give-subscription": "node scripts/give-subscription.js",
+    "create-test-excel": "node scripts/create-test-excel.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

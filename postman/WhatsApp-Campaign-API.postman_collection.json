@@ -475,112 +475,6 @@
           "response": []
         },
         {
-          "name": "Confirm and Start Campaign",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/confirm-and-start",
-              "host": ["{{base_url}}"],
-              "path": ["api", "campaigns", "{{campaign_id}}", "confirm-and-start"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Campaign Step Status",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/steps",
-              "host": ["{{base_url}}"],
-              "path": ["api", "campaigns", "{{campaign_id}}", "steps"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Navigate to Step",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"step\": 3\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/navigate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "campaigns", "{{campaign_id}}", "navigate"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Go Back Step",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/go-back",
-              "host": ["{{base_url}}"],
-              "path": ["api", "campaigns", "{{campaign_id}}", "go-back"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Reset to Step",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"step\": 2\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/api/campaigns/{{campaign_id}}/reset",
-              "host": ["{{base_url}}"],
-              "path": ["api", "campaigns", "{{campaign_id}}", "reset"]
-            }
-          },
-          "response": []
-        },
-        {
           "name": "Set Campaign Interval and Schedule",
           "request": {
             "method": "PUT",
@@ -1022,6 +916,44 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "📡 WebSocket",
+      "item": [
+        {
+          "name": "Connect to Campaign WebSocket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "ws://localhost:4000/ws/campaigns?campaignId={{campaign_id}}&userId={{user_id}}",
+              "protocol": "ws",
+              "host": [
+                "localhost:4000"
+              ],
+              "path": [
+                "ws",
+                "campaigns"
+              ],
+              "query": [
+                {
+                  "key": "campaignId",
+                  "value": "{{campaign_id}}",
+                  "description": "Campaign ID to subscribe to"
+                },
+                {
+                  "key": "userId",
+                  "value": "{{user_id}}",
+                  "description": "User ID for authentication"
+                }
+              ]
+            },
+            "description": "Connect to WebSocket for real-time campaign updates.\n\n**Endpoint:** `ws://localhost:4000/ws/campaigns`\n\n**Query Parameters:**\n- `campaignId`: Campaign ID to subscribe to\n- `userId`: User ID for authentication\n\n**Events you'll receive:**\n- `qr_code`: WhatsApp QR code for scanning\n- `campaign_update`: General campaign information\n- `status_update`: Campaign status changes\n- `progress_update`: Sending progress\n- `error_update`: Error messages\n- `completion_update`: Campaign completion report\n\n**Note:** In Postman v10+, you can test WebSocket connections directly. Make sure to set `campaign_id` and `user_id` in your environment variables."
+          },
+          "response": []
+        }
+      ],
+      "description": "WebSocket endpoints for real-time campaign monitoring and WhatsApp QR code updates"
     }
   ],
   "variable": [

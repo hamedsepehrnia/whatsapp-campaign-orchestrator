@@ -1,207 +1,134 @@
 const prisma = require('../config/prisma');
 
-// Helper function for conditional logging
-const isDev = process.env.NODE_ENV === 'development';
-const log = (...args) => isDev && console.log(...args);
-
 module.exports = {
   prisma,
   User: {
-    // User model methods
     async findById(id) {
-      try {
-        log('🔍 User.findById called with ID:', id);
-        const user = await prisma.user.findUnique({
-          where: { id: parseInt(id) },
-          include: {
-            purchasedPackages: true,
-            campaigns: true,
-            orders: {
-              include: {
-                package: true,
-                transaction: true
-              }
+      if (!id || id === 'undefined' || id === 'null') {
+        return null;
+      }
+      
+      const parsedId = parseInt(id);
+      if (isNaN(parsedId)) {
+        return null;
+      }
+      
+      return await prisma.user.findUnique({
+        where: { id: parsedId },
+        include: {
+          purchasedPackages: true,
+          campaigns: true,
+          orders: {
+            include: {
+              package: true,
+              transaction: true
             }
           }
-        });
-        log('👤 User.findById result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not found');
-        return user;
-      } catch (error) {
-        console.error('💥 User.findById error:', error);
-        throw error;
-      }
+        }
+      });
     },
 
     async findByEmail(email) {
-      try {
-        log('🔍 User.findByEmail called with email:', email);
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: {
-            purchasedPackages: true,
-            campaigns: true,
-            orders: {
-              include: {
-                package: true,
-                transaction: true
-              }
+      return await prisma.user.findUnique({
+        where: { email },
+        include: {
+          purchasedPackages: true,
+          campaigns: true,
+          orders: {
+            include: {
+              package: true,
+              transaction: true
             }
           }
-        });
-        log('👤 User.findByEmail result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not found');
-        return user;
-      } catch (error) {
-        console.error('💥 User.findByEmail error:', error);
-        throw error;
-      }
+        }
+      });
     },
 
     async findByUsername(username) {
-      try {
-        log('🔍 User.findByUsername called with username:', username);
-        const user = await prisma.user.findUnique({
-          where: { username },
-          include: {
-            purchasedPackages: true,
-            campaigns: true,
-            orders: {
-              include: {
-                package: true,
-                transaction: true
-              }
+      return await prisma.user.findUnique({
+        where: { username },
+        include: {
+          purchasedPackages: true,
+          campaigns: true,
+          orders: {
+            include: {
+              package: true,
+              transaction: true
             }
           }
-        });
-        log('👤 User.findByUsername result:', user ? `ID: ${user.id}, Username: ${user.username}` : 'Not found');
-        return user;
-      } catch (error) {
-        console.error('💥 User.findByUsername error:', error);
-        throw error;
-      }
+        }
+      });
     },
 
     async findByPhone(phone) {
-      try {
-        log('🔍 User.findByPhone called with phone:', phone);
-        const user = await prisma.user.findUnique({
-          where: { phone },
-          include: {
-            purchasedPackages: true,
-            campaigns: true,
-            orders: {
-              include: {
-                package: true,
-                transaction: true
-              }
+      return await prisma.user.findUnique({
+        where: { phone },
+        include: {
+          purchasedPackages: true,
+          campaigns: true,
+          orders: {
+            include: {
+              package: true,
+              transaction: true
             }
           }
-        });
-        log('👤 User.findByPhone result:', user ? `ID: ${user.id}, Phone: ${user.phone}` : 'Not found');
-        return user;
-      } catch (error) {
-        console.error('💥 User.findByPhone error:', error);
-        throw error;
-      }
+        }
+      });
     },
 
     async create(userData) {
-      try {
-        log('🔍 User.create called with data:', { 
-          name: userData.name, 
-          email: userData.email, 
-          username: userData.username,
-          phone: userData.phone 
-        });
-        
-        const user = await prisma.user.create({
-          data: userData,
-          include: {
-            purchasedPackages: true,
-            campaigns: true,
-            orders: {
-              include: {
-                package: true,
-                transaction: true
-              }
+      return await prisma.user.create({
+        data: userData,
+        include: {
+          purchasedPackages: true,
+          campaigns: true,
+          orders: {
+            include: {
+              package: true,
+              transaction: true
             }
           }
-        });
-        
-        log('👤 User.create result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not created');
-        return user;
-      } catch (error) {
-        console.error('💥 User.create error:', error);
-        throw error;
-      }
+        }
+      });
     },
 
     async update(id, userData) {
-      try {
-        log('🔍 User.update called with ID:', id, 'and data:', userData);
-        
-        const user = await prisma.user.update({
-          where: { id: parseInt(id) },
-          data: userData,
-          include: {
-            purchasedPackages: true,
-            campaigns: true,
-            orders: {
-              include: {
-                package: true,
-                transaction: true
-              }
+      return await prisma.user.update({
+        where: { id: parseInt(id) },
+        data: userData,
+        include: {
+          purchasedPackages: true,
+          campaigns: true,
+          orders: {
+            include: {
+              package: true,
+              transaction: true
             }
           }
-        });
-        
-        log('👤 User.update result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not updated');
-        return user;
-      } catch (error) {
-        console.error('💥 User.update error:', error);
-        throw error;
-      }
+        }
+      });
     },
 
     async delete(id) {
-      try {
-        log('🔍 User.delete called with ID:', id);
-        
-        const user = await prisma.user.delete({
-          where: { id: parseInt(id) }
-        });
-        
-        log('👤 User.delete result:', user ? `ID: ${user.id}, Email: ${user.email}` : 'Not deleted');
-        return user;
-      } catch (error) {
-        console.error('💥 User.delete error:', error);
-        throw error;
-      }
+      return await prisma.user.delete({
+        where: { id: parseInt(id) }
+      });
     },
 
     async findAll(filters = {}) {
-      try {
-        log('🔍 User.findAll called with filters:', filters);
-        
-        const users = await prisma.user.findMany({
-          where: filters,
-          include: {
-            purchasedPackages: true,
-            campaigns: true,
-            orders: {
-              include: {
-                package: true,
-                transaction: true
-              }
+      return await prisma.user.findMany({
+        where: filters,
+        include: {
+          purchasedPackages: true,
+          campaigns: true,
+          orders: {
+            include: {
+              package: true,
+              transaction: true
             }
           }
-        });
-        
-        log('👤 User.findAll result:', users.length, 'users found');
-        return users;
-      } catch (error) {
-        console.error('💥 User.findAll error:', error);
-        throw error;
-      }
+        }
+      });
     }
   },
 
@@ -259,16 +186,21 @@ module.exports = {
     },
 
     async findAll(filters = {}, pagination = {}) {
-      // پاک کردن whitespace از status
+      // Normalize status: convert to uppercase and trim whitespace
       if (filters.status) {
         if (Array.isArray(filters.status)) {
-          // اگر array باشه، همه عناصر رو trim کن و به { in: [...] } تبدیل کن
-          filters.status = { in: filters.status.map(s => s.trim()) };
+          // اگر array باشه، همه عناصر رو trim کن و به uppercase تبدیل کن
+          filters.status = { in: filters.status.map(s => s.trim().toUpperCase()) };
         } else if (typeof filters.status === 'string') {
-          // اگر string باشه، trim کن
-          filters.status = filters.status.trim();
+          // اگر string باشه، trim کن و به uppercase تبدیل کن
+          filters.status = filters.status.trim().toUpperCase();
+        } else if (filters.status.in && Array.isArray(filters.status.in)) {
+          // اگر object باشه با in property، عناصر array رو normalize کن
+          filters.status.in = filters.status.in.map(s => 
+            typeof s === 'string' ? s.trim().toUpperCase() : s
+          );
         }
-        // اگر object باشه (مثل { in: [...] }), تغییر نمی‌دیم
+        // اگر object باشه با property های دیگه (مثل { not: ... }), تغییر نمی‌دیم
       }
       
       const { page = 1, limit = 10, skip, take } = pagination;

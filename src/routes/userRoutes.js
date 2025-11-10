@@ -1,6 +1,6 @@
 const express = require('express');
 const passport = require('passport');
-const { registerUser, registerUserSimple, loginUser, getProfile, editProfile, logoutUser } = require('../controllers/userController');
+const { registerUser, registerUserSimple, loginUser, getProfile, editProfile } = require('../controllers/userController');
 const { validate } = require('../middlewares/validate');
 const { userRegisterSchema, userRegisterSimpleSchema, userLoginSchema } = require('../validators/schemas');
 
@@ -36,8 +36,5 @@ router.post("/login", validate(userLoginSchema), (req, res, next) => {
 // پروفایل کاربر
 router.get('/profile', isAuthenticated, getProfile);
 router.post('/profile', isAuthenticated, editProfile);
-
-// خروج از حساب کاربری
-router.post("/logout", isAuthenticated, logoutUser);
 
 module.exports = router;

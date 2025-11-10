@@ -1,0 +1,25 @@
+2025/11/07-20:52:43.713 24451 Reusing MANIFEST /home/hamed/Desktop/whatsapp-messager/.wwebjs_auth/session-session-1-1/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2025/11/07-20:52:43.713 24451 Recovering log #87
+2025/11/07-20:52:43.718 24451 Reusing old log /home/hamed/Desktop/whatsapp-messager/.wwebjs_auth/session-session-1-1/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000087.log 
+2025/11/07-20:52:45.093 24453 Level-0 table #94: started
+2025/11/07-20:52:45.099 24453 Level-0 table #94: 126135 bytes OK
+2025/11/07-20:52:45.101 24453 Delete type=0 #87
+2025/11/07-20:52:45.102 24450 Manual compaction at level-0 from '\x00%\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00&\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/11/07-20:52:45.102 24453 Level-0 table #96: started
+2025/11/07-20:52:45.104 24453 Level-0 table #96: 436 bytes OK
+2025/11/07-20:52:45.108 24453 Delete type=0 #93
+2025/11/07-20:52:45.108 24450 Manual compaction at level-0 from '\x00&\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00'\x00\x00\x00' @ 0 : 0; will stop at '\x00&\x00\x00\x05' @ 250127 : 0
+2025/11/07-20:52:45.108 24450 Compacting 1@0 + 1@1 files
+2025/11/07-20:52:45.112 24450 Generated table #97@0: 3656 keys, 74711 bytes
+2025/11/07-20:52:45.112 24450 Compacted 1@0 + 1@1 files => 74711 bytes
+2025/11/07-20:52:45.117 24450 compacted to: files[ 0 1 2 0 0 0 0 ]
+2025/11/07-20:52:45.117 24450 Delete type=2 #96
+2025/11/07-20:52:45.117 24450 Manual compaction at level-0 from '\x00&\x00\x00\x05' @ 250127 : 0 .. '\x00'\x00\x00\x00' @ 0 : 0; will stop at (end)
+2025/11/07-20:52:45.986 24451 Compacting 1@1 + 1@2 files
+2025/11/07-20:52:46.043 24451 Generated table #98@1: 53036 keys, 2208348 bytes
+2025/11/07-20:52:46.047 24451 Generated table #99@1: 2506 keys, 47848 bytes
+2025/11/07-20:52:46.047 24451 Compacted 1@1 + 1@2 files => 2256196 bytes
+2025/11/07-20:52:46.050 24451 compacted to: files[ 0 0 3 0 0 0 0 ]
+2025/11/07-20:52:46.050 24451 Delete type=2 #97
+2025/11/07-20:52:46.051 24451 Delete type=2 #94
+2025/11/07-20:52:46.051 24451 Delete type=2 #90
